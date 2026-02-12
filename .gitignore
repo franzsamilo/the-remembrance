@@ -1,0 +1,52 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+pnpm-debug.log
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+test
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+venv*/
+.venv/
+env/
+.env
+instance/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Data and Documents
+*.pdf
+backend/documents/
+
+# Backend specific overrides
+backend/venv*/
+backend/.env
+backend/__pycache__/

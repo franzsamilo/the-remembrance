@@ -1,0 +1,27 @@
+# Core ML & Graph
+torch
+torch-geometric
+sentence-transformers
+numpy
+
+# GraphRAG & Neo4j
+neo4j
+neo4j-graphrag
+graphrag
+git+https://github.com/neo4j-contrib/ms-graphrag-neo4j.git
+
+# LLM & Context
+langchain
+langchain-community
+langchain-google-genai
+pydantic
+python-dotenv
+
+# Utilities
+pymupdf
+pandas
+tqdm
+pyarrow
+fastapi
+uvicorn[standard]
+python-multipart
