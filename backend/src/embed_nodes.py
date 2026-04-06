@@ -1,110 +1,131 @@
-import os
 import asyncio
-from dotenv import load_dotenv
+import sys
+from datetime import datetime, timezone
+
 from neo4j import GraphDatabase
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
-import numpy as np
-import sys
 
-# Load environment variables
-load_dotenv()
+from src.config import Config, logger
 
-NEO4J_URI = os.getenv("NEO4J_URI")
-NEO4J_USERNAME = os.getenv("NEO4J_USERNAME")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
-NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _select_text_and_field(properties: dict) -> tuple[str | None, str | None]:
+    prioritized_fields = ("description", "summary", "text", "content", "excerpt", "name")
+    for field_name in prioritized_fields:
+        value = properties.get(field_name)
+        if isinstance(value, str) and value.strip():
+            return value.strip(), field_name
+    return None, None
 
 async def embed_nodes():
-    # Initialize DistilBERT model
-    # 'distilbert-base-nli-stsb-mean-tokens' is a standard model for semantic similarity
-    print("Loading DistilBERT model (sentence-transformers)...")
+    """Align all retrievable nodes onto one DistilBERT embedding space."""
+
+    logger.info("Loading DistilBERT model %s", Config.DISTILBERT_MODEL)
     try:
-        model = SentenceTransformer('distilbert-base-nli-stsb-mean-tokens')
-    except Exception as e:
-        print(f"Failed to load model: {e}")
+        model = SentenceTransformer(Config.DISTILBERT_MODEL)
+    except Exception as exc:
+        logger.error("Failed to load embedding model: %s", exc)
         return
-    
-    # Connect to Neo4j
-    print(f"Connecting to Neo4j at {NEO4J_URI}...")
+
+    logger.info("Connecting to Neo4j at %s", Config.NEO4J_URI)
     try:
-        driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
-    except Exception as e:
-        print(f"Failed to connect to Neo4j: {e}")
+        driver = GraphDatabase.driver(
+            Config.NEO4J_URI,
+            auth=(Config.NEO4J_USERNAME, Config.NEO4J_PASSWORD),
+        )
+    except Exception as exc:
+        logger.error("Failed to connect to Neo4j: %s", exc)
         return
-    
+
     try:
-        with driver.session(database=NEO4J_DATABASE) as session:
-            # 1. Fetch nodes that need embeddings
-            # We look for nodes with '__Entity__' or 'Entity' label
-            print("Fetching nodes from Neo4j...")
+        with driver.session(database=Config.NEO4J_DATABASE) as session:
+            logger.info("Fetching retrievable nodes that need DistilBERT embeddings")
             query = """
                 MATCH (n)
-                WHERE (n:__Entity__ OR n:Entity) AND n.embedding IS NULL
-                RETURN id(n) as node_id, n as properties
+                WHERE any(label IN labels(n) WHERE label IN $retrievable_labels)
+                  AND (
+                    n.embedding IS NULL
+                    OR n.embedding_model IS NULL
+                    OR n.embedding_model <> $embedding_model
+                    OR coalesce(n.embedding_dimension, 0) <> $embedding_dimension
+                  )
+                RETURN id(n) as node_id, labels(n) as labels, n as properties
             """
-            result = session.run(query)
-            
+            result = session.run(
+                query,
+                retrievable_labels=list(Config.LEGAL_NODE_TYPES),
+                embedding_model=Config.DISTILBERT_MODEL,
+                embedding_dimension=Config.EMBEDDING_DIMENSION,
+            )
+
             nodes = []
             for record in result:
                 props = record["properties"]
-                # Try to find a property to embed. Order: description, name, id, text
-                text_to_embed = (
-                    props.get("description") or 
-                    props.get("name") or 
-                    props.get("id") or 
-                    props.get("text") or
-                    props.get("summary")
-                )
-                
+                text_to_embed, source_field = _select_text_and_field(props)
                 if text_to_embed:
                     nodes.append({
                         "node_id": record["node_id"],
-                        "text": text_to_embed
+                        "text": text_to_embed,
+                        "text_field": source_field,
                     })
-            
+
             if not nodes:
-                print("No nodes found that require embedding.")
+                logger.info("No nodes found that require re-embedding.")
                 return
 
-            print(f"Total nodes to process: {len(nodes)}")
-            
-            # 2. Batch processing to avoid timeouts and high memory usage
-            batch_size = 50
+            logger.info("Total nodes to process for embeddings: %s", len(nodes))
+            batch_size = Config.EMBEDDING_BATCH_SIZE
             for i in tqdm(range(0, len(nodes), batch_size), desc="Embedding batches"):
                 batch = nodes[i : i + batch_size]
                 texts = [n["text"] for n in batch]
-                
-                print(f"Embedding batch {i // batch_size + 1}/{ (len(nodes) + batch_size - 1) // batch_size}...")
-                embeddings = model.encode(texts)
-                
-                # 3. Update Neo4j
-                # Using a single transaction per batch for efficiency
+
+                logger.info(
+                    "Embedding batch %s/%s",
+                    i // batch_size + 1,
+                    (len(nodes) + batch_size - 1) // batch_size,
+                )
+                embeddings = model.encode(texts, normalize_embeddings=True)
+
                 with session.begin_transaction() as tx:
                     for node, embedding in zip(batch, embeddings):
-                        # Convert numpy array to list for Neo4j compatibility
                         vector = embedding.tolist()
                         tx.run("""
                             MATCH (n)
                             WHERE id(n) = $node_id
-                            SET n.embedding = $vector, n.status = 'Feature-Complete'
-                        """, node_id=node["node_id"], vector=vector)
-                
-                print(f"Batch {i // batch_size + 1} completed and saved to Neo4j.")
+                            SET n.embedding = $vector,
+                                n.embedding_model = $embedding_model,
+                                n.embedding_dimension = $embedding_dimension,
+                                n.embedding_provider = $embedding_provider,
+                                n.embedding_status = 'Feature-Complete',
+                                n.embedding_text_field = $text_field,
+                                n.embedding_updated_at = $updated_at,
+                                n.status = 'Feature-Complete'
+                        """,
+                            node_id=node["node_id"],
+                            vector=vector,
+                            embedding_model=Config.DISTILBERT_MODEL,
+                            embedding_dimension=Config.EMBEDDING_DIMENSION,
+                            embedding_provider=Config.EMBEDDING_PROVIDER,
+                            text_field=node["text_field"],
+                            updated_at=_utc_now_iso(),
+                        )
 
-        print("\nNode embedding process 'Cold Start' completed successfully!")
+                logger.info("Completed embedding batch %s", i // batch_size + 1)
 
-    except Exception as e:
-        print(f"An error occurred during execution: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.info("Node embedding alignment completed successfully.")
+
+    except Exception as exc:
+        logger.exception("Embedding alignment failed: %s", exc)
     finally:
         driver.close()
 
 if __name__ == "__main__":
-    # Ensure UTF-8 output for Windows terminals if needed
     if sys.platform == "win32":
         import io
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    
+
     asyncio.run(embed_nodes())

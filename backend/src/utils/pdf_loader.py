@@ -1,5 +1,13 @@
+"""
+Legacy PDF loader utilities. Not used by the main ingestion pipeline,
+which uses SimpleKGPipeline (neo4j-graphrag) instead. Kept for potential
+standalone or alternative use cases.
+"""
 import fitz  # PyMuPDF
 import os
+
+from src.config import logger
+
 
 def extract_text_from_pdf(pdf_path: str) -> str:
     """Extracts text from a single PDF file."""
@@ -22,9 +30,9 @@ def load_documents_from_folder(folder_path: str) -> list[str]:
             try:
                 text = extract_text_from_pdf(file_path)
                 texts.append(text)
-                print(f"Loaded: {filename}")
+                logger.info("Loaded: %s", filename)
             except Exception as e:
-                print(f"Error loading {filename}: {e}")
+                logger.warning("Error loading %s: %s", filename, e)
     return texts
 
 def chunk_text(text: str, chunk_size=1024, overlap=200) -> list[str]:

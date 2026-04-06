@@ -25,8 +25,6 @@ out/
 build/
 dist/
 
-test
-
 # Python
 __pycache__/
 *.py[cod]
@@ -50,3 +48,6 @@ backend/documents/
 backend/venv*/
 backend/.env
 backend/__pycache__/
+backend/output*.txt
+backend/output*.json
+framework.log

@@ -1,0 +1,56 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Wax Seal Base Circle -->
+  <circle cx="256" cy="256" r="240" fill="#8B1A1A"/>
+  <circle cx="256" cy="256" r="240" fill="url(#waxGradient)"/>
+  
+  <!-- Wax Seal Shadow/Depth -->
+  <circle cx="256" cy="266" r="240" fill="black" opacity="0.15"/>
+  
+  <!-- Inner Seal Circle -->
+  <circle cx="256" cy="256" r="200" fill="#A52A2A" opacity="0.3"/>
+  
+  <!-- Decorative Border -->
+  <circle cx="256" cy="256" r="220" stroke="#F5F2E9" stroke-width="3" fill="none" opacity="0.4"/>
+  <circle cx="256" cy="256" r="180" stroke="#F5F2E9" stroke-width="2" fill="none" opacity="0.3"/>
+  
+  <!-- Central Book/Archive Symbol -->
+  <g transform="translate(256, 256)">
+    <!-- Book Spine -->
+    <rect x="-60" y="-80" width="120" height="160" rx="8" fill="#F5F2E9"/>
+    
+    <!-- Book Pages (layered effect) -->
+    <rect x="-55" y="-75" width="110" height="150" rx="6" fill="#FCFAF2"/>
+    <rect x="-50" y="-70" width="100" height="140" rx="5" fill="#F5F2E9"/>
+    
+    <!-- Book Cover Lines -->
+    <line x1="-40" y1="-50" x2="40" y2="-50" stroke="#D4AF37" stroke-width="3" stroke-linecap="round"/>
+    <line x1="-40" y1="-30" x2="40" y2="-30" stroke="#D4AF37" stroke-width="3" stroke-linecap="round"/>
+    <line x1="-40" y1="-10" x2="40" y2="-10" stroke="#D4AF37" stroke-width="3" stroke-linecap="round"/>
+    
+    <!-- Decorative "R" monogram for Remembrance -->
+    <text x="0" y="30" font-family="serif" font-size="80" font-weight="bold" fill="#8B1A1A" text-anchor="middle" dominant-baseline="middle">R</text>
+    
+    <!-- Knowledge Network Nodes (subtle) -->
+    <circle cx="-70" cy="-100" r="8" fill="#D4AF37" opacity="0.6"/>
+    <circle cx="70" cy="-100" r="8" fill="#D4AF37" opacity="0.6"/>
+    <circle cx="-70" cy="100" r="8" fill="#D4AF37" opacity="0.6"/>
+    <circle cx="70" cy="100" r="8" fill="#D4AF37" opacity="0.6"/>
+    
+    <!-- Connecting Lines (graph network) -->
+    <line x1="-70" y1="-100" x2="0" y2="-80" stroke="#D4AF37" stroke-width="2" opacity="0.3"/>
+    <line x1="70" y1="-100" x2="0" y2="-80" stroke="#D4AF37" stroke-width="2" opacity="0.3"/>
+    <line x1="-70" y1="100" x2="0" y2="80" stroke="#D4AF37" stroke-width="2" opacity="0.3"/>
+    <line x1="70" y1="100" x2="0" y2="80" stroke="#D4AF37" stroke-width="2" opacity="0.3"/>
+  </g>
+  
+  <!-- Wax Drip Effect at Bottom -->
+  <ellipse cx="256" cy="490" rx="60" ry="15" fill="#8B1A1A" opacity="0.4"/>
+  
+  <!-- Gradient Definitions -->
+  <defs>
+    <radialGradient id="waxGradient" cx="40%" cy="30%">
+      <stop offset="0%" style="stop-color:#A52A2A;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#8B1A1A;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+</svg>

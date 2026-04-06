@@ -1,0 +1,15 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simplified Wax Seal for Favicon -->
+  <circle cx="16" cy="16" r="15" fill="#8B1A1A"/>
+  <circle cx="16" cy="16" r="12" fill="#A52A2A" opacity="0.3"/>
+  
+  <!-- Book Symbol -->
+  <rect x="10" y="8" width="12" height="16" rx="1" fill="#F5F2E9"/>
+  <rect x="11" y="9" width="10" height="14" rx="1" fill="#FCFAF2"/>
+  
+  <!-- "R" Monogram -->
+  <text x="16" y="20" font-family="serif" font-size="10" font-weight="bold" fill="#8B1A1A" text-anchor="middle" dominant-baseline="middle">R</text>
+  
+  <!-- Gold accent line -->
+  <line x1="12" y1="11" x2="20" y2="11" stroke="#D4AF37" stroke-width="1"/>
+</svg>

@@ -7,17 +7,28 @@ load_dotenv()
 
 # --- Logging Configuration ---
 def setup_logging():
+    log_path = os.path.join(Config.BASE_DIR, "framework.log")
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler("framework.log")
+            logging.FileHandler(log_path)
         ]
     )
 
+
+def _parse_csv_env(name: str, default: str) -> tuple[str, ...]:
+    raw_value = os.getenv(name, default)
+    values = [item.strip() for item in raw_value.split(",") if item.strip()]
+    return tuple(values)
+
 # --- Configuration Settings ---
 class Config:
+    # Path Settings
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    DOCS_DIR = os.path.join(BASE_DIR, "documents")
+
     # Neo4j Settings
     NEO4J_URI = os.getenv("NEO4J_URI")
     NEO4J_USERNAME = os.getenv("NEO4J_USERNAME", "neo4j")
@@ -29,11 +40,75 @@ class Config:
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "models/gemini-embedding-001")
     DISTILBERT_MODEL = os.getenv("DISTILBERT_MODEL", "distilbert-base-nli-stsb-mean-tokens")
+    EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", 768))
+    EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "distilbert")
+    EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", 50))
+    INGESTION_ON_ERROR = os.getenv("INGESTION_ON_ERROR", "RAISE").upper()
+    INGESTION_LLM_MAX_RETRIES = int(os.getenv("INGESTION_LLM_MAX_RETRIES", 5))
+    INGESTION_LLM_BASE_DELAY = int(os.getenv("INGESTION_LLM_BASE_DELAY", 5))
+    COMPGCN_HIDDEN_CHANNELS = int(os.getenv("COMPGCN_HIDDEN_CHANNELS", 256))
+    COMPGCN_EPOCHS = int(os.getenv("COMPGCN_EPOCHS", 100))
+    COMPGCN_LEARNING_RATE = float(os.getenv("COMPGCN_LEARNING_RATE", 0.001))
+    COMPGCN_WEIGHT_DECAY = float(os.getenv("COMPGCN_WEIGHT_DECAY", 0.0001))
+    COMPGCN_VALIDATION_SPLIT = float(os.getenv("COMPGCN_VALIDATION_SPLIT", 0.2))
+    COMPGCN_PATIENCE = int(os.getenv("COMPGCN_PATIENCE", 20))
+    COMPGCN_DROPOUT = float(os.getenv("COMPGCN_DROPOUT", 0.2))
+    COMPGCN_LABEL_SMOOTHING = float(os.getenv("COMPGCN_LABEL_SMOOTHING", 0.0))
+    COMPGCN_GRAD_CLIP = float(os.getenv("COMPGCN_GRAD_CLIP", 1.0))
+    COMPGCN_NEG_RATIO = int(os.getenv("COMPGCN_NEG_RATIO", 10))
+    COMPGCN_SEED = int(os.getenv("COMPGCN_SEED", 42))  # Set for reproducible audit runs
+    LEGAL_NODE_TYPES = _parse_csv_env(
+        "LEGAL_NODE_TYPES",
+        "__Entity__,Entity,Method,Researcher,Dataset,Concept,Result,Metric",
+    )
+    LEGAL_RELATIONSHIP_TYPES = _parse_csv_env(
+        "LEGAL_RELATIONSHIP_TYPES",
+        "USES,CONTRADICTS,EXTENDS,PROPOSES,EVALUATES,ACHIEVES,FROM_CHUNK",
+    )
+    SOURCE_DOCUMENT_LABEL = os.getenv("SOURCE_DOCUMENT_LABEL", "SourceDocument")
+    INGESTION_RUN_LABEL = os.getenv("INGESTION_RUN_LABEL", "IngestionRun")
+    AUDIT_RUN_LABEL = os.getenv("AUDIT_RUN_LABEL", "AuditRun")
+    GRAPH_READY_MIN_PROVENANCE_LINKS = int(os.getenv("GRAPH_READY_MIN_PROVENANCE_LINKS", 1))
+    EVALUATION_QUERIES_FILE = os.getenv("EVALUATION_QUERIES_FILE") or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "evaluation_queries.json"
+    )
+    EVALUATION_RESULTS_PATH = os.getenv("EVALUATION_RESULTS_PATH") or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "evaluation_results.json"
+    )
     
+    # Framework branding (consumer-specific via env)
+    API_TITLE = os.getenv("API_TITLE", "Knowledge Graph Framework API")
+    FRONTEND_APP_NAME = os.getenv("FRONTEND_APP_NAME", "The Remembrance Vault")
+    SHOW_DASHBOARD_STATS = os.getenv("SHOW_DASHBOARD_STATS", "false").lower() == "true"
+    SYNTHESIS_PERSONA = os.getenv("SYNTHESIS_PERSONA", "Analytical Consultant")
+    SYNTHESIS_FRAMEWORK_NAME = os.getenv("SYNTHESIS_FRAMEWORK_NAME", "")
+    LOGGER_NAME = os.getenv("LOGGER_NAME", "kg-framework")
+    SESSION_PREFIX = os.getenv("SESSION_PREFIX", "session_")
+
     # API Settings
     PORT = int(os.getenv("PORT", 8000))
     DEBUG = os.getenv("DEBUG", "False").lower() == "true"
-    
+    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
+    UPLOAD_MAX_SIZE_MB = int(os.getenv("UPLOAD_MAX_SIZE_MB", 50))
+    RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", 60))
+    RATE_LIMIT_WINDOW_SEC = int(os.getenv("RATE_LIMIT_WINDOW_SEC", 60))
+
+    # Aura Agent (Module 3) - OAuth client credentials
+    AURA_AGENT_ENDPOINT = os.getenv("AURA_AGENT_ENDPOINT") or os.getenv("EXTERNAL_AGENT_ENDPOINT")
+    AURA_CLIENT_ID = os.getenv("AURA_CLIENT_ID")
+    AURA_CLIENT_SECRET = os.getenv("AURA_CLIENT_SECRET")
+    AURA_TOKEN_URL = os.getenv("AURA_TOKEN_URL", "https://api.neo4j.io/oauth/token")
+    AURA_AGENT_TIMEOUT_SECONDS = int(os.getenv("AURA_AGENT_TIMEOUT_SECONDS", 45))
+    AURA_AGENT_MAX_RETRIES = int(os.getenv("AURA_AGENT_MAX_RETRIES", 3))
+    AURA_AGENT_RETRY_BACKOFF = float(os.getenv("AURA_AGENT_RETRY_BACKOFF", 1.0))
+    GROUNDING_MIN_SCORE = float(os.getenv("GROUNDING_MIN_SCORE", 0.95))
+    PREFER_LOCAL_GRAPH = os.getenv("PREFER_LOCAL_GRAPH", "true").lower() == "true"
+
+    @classmethod
+    def aura_configured(cls) -> bool:
+        """True if Aura Agent integration can be used."""
+        return bool(cls.AURA_AGENT_ENDPOINT and cls.AURA_CLIENT_ID and cls.AURA_CLIENT_SECRET)
+
     @classmethod
     def validate(cls):
         missing = []
@@ -47,7 +122,7 @@ class Config:
 # Global instances
 Config.validate()
 setup_logging()
-logger = logging.getLogger("the-remembrance")
+logger = logging.getLogger(Config.LOGGER_NAME)
 
 # For backward compatibility with existing code
 NEO4J_URI = Config.NEO4J_URI
