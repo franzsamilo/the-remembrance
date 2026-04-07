@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import threading
 import uuid
 
 import torch
@@ -12,6 +13,7 @@ from src.helpers import utc_now_iso as _utc_now_iso
 
 # Training history for UI visualization (module-level, survives across requests)
 _training_history: dict = {"epochs": [], "early_stop_epoch": None, "best_epoch": None}
+_training_history_lock = threading.Lock()
 
 
 def _compute_auc_roc(labels: torch.Tensor, probabilities: torch.Tensor) -> float | None:
@@ -274,6 +276,7 @@ def run_audit():
 
     best_state = copy.deepcopy(model.state_dict())
     best_auc = float("-inf")
+    best_epoch_idx = None  # Track best epoch (1-indexed)
     final_train_loss = None
     patience_counter = 0
     epoch_metrics = []
@@ -320,6 +323,7 @@ def run_audit():
             best_auc = current_auc
             best_state = copy.deepcopy(model.state_dict())
             patience_counter = 0
+            best_epoch_idx = epoch + 1
         else:
             patience_counter += 1
 
@@ -359,17 +363,15 @@ def run_audit():
             final_mrr = _evaluate_mrr(model, data, train_idx, neg_ratio, positive_triples)
 
     # Store training history for UI
-    global _training_history
-    _training_history = {
-        "epochs": epoch_metrics,
-        "early_stop_epoch": (epoch + 1) if patience_counter >= Config.COMPGCN_PATIENCE else None,
-        "best_epoch": next(
-            (i + 1 for i, m in enumerate(epoch_metrics) if m["auc_roc"] == (round(best_auc, 4) if best_auc > float("-inf") else None)),
-            None,
-        ),
-        "final_auc_roc": round(final_auc, 4) if final_auc is not None else None,
-        "final_mrr": round(final_mrr, 4) if final_mrr is not None else None,
-    }
+    with _training_history_lock:
+        global _training_history
+        _training_history = {
+            "epochs": epoch_metrics,
+            "early_stop_epoch": (epoch + 1) if patience_counter >= Config.COMPGCN_PATIENCE else None,
+            "best_epoch": best_epoch_idx,
+            "final_auc_roc": round(final_auc, 4) if final_auc is not None else None,
+            "final_mrr": round(final_mrr, 4) if final_mrr is not None else None,
+        }
 
     logger.info(
         "CompGCN audit completed for %s relationships with auc_roc=%s mrr=%s",
@@ -460,7 +462,8 @@ def run_audit():
 
 def get_training_history() -> dict:
     """Return the last training run's per-epoch metrics."""
-    return _training_history
+    with _training_history_lock:
+        return copy.deepcopy(_training_history)
 
 
 if __name__ == "__main__":
