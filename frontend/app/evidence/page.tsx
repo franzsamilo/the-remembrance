@@ -8,6 +8,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import DetectiveBoard from "@/components/DetectiveBoard";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
 import { SkeletonDetectiveBoard } from "@/components/Skeleton";
+import FilteringSummary from "@/components/FilteringSummary";
+import RejectedEvidence from "@/components/RejectedEvidence";
+import GroundingError from "@/components/GroundingError";
 import { Triplet, Lead } from "@/lib/types";
 import { STORAGE_KEYS } from "@/lib/constants";
 
@@ -15,10 +18,12 @@ type EvidenceMessage = {
   role: string;
   content: string;
   triplets?: Triplet[];
+  filtered_triplets?: Triplet[];
   leads?: Lead[];
   suggested_actions?: string[];
   userQuery?: string;
   explain?: boolean;
+  groundingError?: boolean;
 };
 
 export default function EvidencePage() {
@@ -98,19 +103,19 @@ export default function EvidencePage() {
 
   if (!message) {
     return (
-      <div className="min-h-screen bg-[#F5F2E9] flex flex-col items-center justify-center p-8 text-center">
-        <div className="p-6 bg-[#E8E4D9]/80 rounded-full border border-[#4A4A4A]/30 mb-6">
-          <Network size={48} className="text-[#6B6B6B]" />
+      <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center p-8 text-center">
+        <div className="p-6 bg-[#E8E4D9]/80 rounded-full border border-[#525252]/30 mb-6">
+          <Network size={48} className="text-[#737373]" />
         </div>
-        <h2 className="text-xl font-semibold text-[#2B2B2B] mb-2" style={{fontFamily: 'EB Garamond, serif'}}>
+        <h2 className="text-xl font-semibold text-[#1A1A1A] mb-2" style={{fontFamily: 'EB Garamond, serif'}}>
           No Evidence Trail Loaded
         </h2>
-        <p className="text-sm text-[#6B6B6B] max-w-md mb-6">
+        <p className="text-sm text-[#737373] max-w-md mb-6">
           Ask a question from the dashboard with &ldquo;Explain Connections&rdquo; enabled, then click &ldquo;View Evidence&rdquo; to see the full trail here.
         </p>
         <Link
           href="/"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#D4AF37] hover:bg-[#B8941F] text-[#2B2B2B] rounded-sm font-semibold shadow-lg transition-all text-sm"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#C5A028] hover:bg-[#B8941F] text-[#1A1A1A] rounded-sm font-semibold shadow-lg transition-all text-sm"
         >
           Go to Dashboard
         </Link>
@@ -120,19 +125,19 @@ export default function EvidencePage() {
 
   if (!message.explain || triplets.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F5F2E9] flex flex-col items-center justify-center p-8 text-center">
-        <div className="p-6 bg-[#E8E4D9]/80 rounded-full border border-[#4A4A4A]/30 mb-6">
-          <FileText size={48} className="text-[#6B6B6B]" />
+      <div className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center p-8 text-center">
+        <div className="p-6 bg-[#E8E4D9]/80 rounded-full border border-[#525252]/30 mb-6">
+          <FileText size={48} className="text-[#737373]" />
         </div>
-        <h2 className="text-xl font-semibold text-[#2B2B2B] mb-2" style={{fontFamily: 'EB Garamond, serif'}}>
+        <h2 className="text-xl font-semibold text-[#1A1A1A] mb-2" style={{fontFamily: 'EB Garamond, serif'}}>
           No Evidence Trail
         </h2>
-        <p className="text-sm text-[#6B6B6B] max-w-md mb-6">
+        <p className="text-sm text-[#737373] max-w-md mb-6">
           This response did not include detective insights. Go back and ask a question with &ldquo;Explain Connections&rdquo; enabled.
         </p>
         <Link
           href="/"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#D4AF37] hover:bg-[#B8941F] text-[#2B2B2B] rounded-sm font-semibold shadow-lg transition-all text-sm"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#C5A028] hover:bg-[#B8941F] text-[#1A1A1A] rounded-sm font-semibold shadow-lg transition-all text-sm"
         >
           Back to Dashboard
         </Link>
@@ -152,21 +157,21 @@ export default function EvidencePage() {
   }));
 
   return (
-    <div className="h-screen flex flex-col bg-[#F5F2E9] text-[#2B2B2B] overflow-hidden">
-      <header className="shrink-0 z-50 bg-[#FCFAF2]/98 backdrop-blur border-b border-[#4A4A4A]/50">
+    <div className="h-screen flex flex-col bg-[#FAFAF8] text-[#1A1A1A] overflow-hidden">
+      <header className="shrink-0 z-50 bg-[#FFFFFF]/98 backdrop-blur border-b border-[#525252]/50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div>
-            <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B]">
+            <p className="text-[10px] font-mono uppercase tracking-widest text-[#737373]">
               Evidence Board
             </p>
-            <h1 className="text-lg font-semibold text-[#2B2B2B]">
+            <h1 className="text-lg font-semibold text-[#1A1A1A]">
               Evidence for: &ldquo;{query}&rdquo;
             </h1>
           </div>
           <div className="flex items-center gap-1">
             <Link
               href="/"
-              className="px-4 py-2 text-sm text-[#6B6B6B] hover:text-[#2B2B2B] transition-colors"
+              className="px-4 py-2 text-sm text-[#737373] hover:text-[#1A1A1A] transition-colors"
               onClick={() => {
                 if (typeof window !== "undefined") {
                   sessionStorage.setItem(STORAGE_KEYS.OPEN_CHAT, "1");
@@ -177,7 +182,7 @@ export default function EvidencePage() {
             </Link>
             <button
               onClick={handleClose}
-              className="p-2 rounded-full hover:bg-[#E8E4D9] text-[#6B6B6B] transition-colors"
+              className="p-2 rounded-full hover:bg-[#E8E4D9] text-[#737373] transition-colors"
               aria-label="Close"
             >
               <X size={20} />
@@ -187,11 +192,23 @@ export default function EvidencePage() {
       </header>
 
       <main className="flex-1 min-h-0 overflow-y-auto">
+        {message?.groundingError ? (
+          <div className="max-w-4xl mx-auto p-8 space-y-6">
+            <GroundingError
+              message={message.content}
+              filteredTriplets={message.filtered_triplets ?? []}
+            />
+            <RejectedEvidence
+              triplets={message.filtered_triplets ?? []}
+              threshold={0.95}
+            />
+          </div>
+        ) : (
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-0">
         {/* Supporting Facts — Evidence Trail + Graph View */}
-        <div className="p-6 border-r border-[#4A4A4A]/30 bg-[#F5F2E9]/60 space-y-6">
+        <div className="p-6 border-r border-[#E5E5E3] bg-[#FAFAF8]/60 space-y-6">
           {/* Expandable Graph View */}
-          <div className="border border-[#4A4A4A]/30 rounded-lg bg-[#FCFAF2] overflow-hidden">
+          <div className="border border-[#E5E5E3] rounded-lg bg-[#FFFFFF] overflow-hidden">
             <button
               type="button"
               onClick={() => setGraphViewExpanded(!graphViewExpanded)}
@@ -201,16 +218,16 @@ export default function EvidencePage() {
               id="graph-view-toggle"
             >
               <div className="flex items-center gap-2">
-                <Network size={18} className="text-[#D4AF37]" />
-                <span className="text-sm font-semibold text-[#2B2B2B]">Graph View</span>
-                <span className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B]">
+                <Network size={18} className="text-[#C5A028]" />
+                <span className="text-sm font-semibold text-[#1A1A1A]">Graph View</span>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-[#737373]">
                   {triplets.length} facts · {entityCount} entities
                 </span>
               </div>
               {graphViewExpanded ? (
-                <ChevronUp size={18} className="text-[#6B6B6B]" />
+                <ChevronUp size={18} className="text-[#737373]" />
               ) : (
-                <ChevronDown size={18} className="text-[#6B6B6B]" />
+                <ChevronDown size={18} className="text-[#737373]" />
               )}
             </button>
             <AnimatePresence>
@@ -249,28 +266,41 @@ export default function EvidencePage() {
               (message.content && message.content.length > 180 ? "…" : "")
             }
           />
+
+          {(message?.filtered_triplets?.length ?? 0) > 0 && (
+            <FilteringSummary
+              validatedCount={triplets.length}
+              filteredCount={message?.filtered_triplets?.length ?? 0}
+              threshold={0.95}
+            />
+          )}
+
+          <RejectedEvidence
+            triplets={message?.filtered_triplets ?? []}
+            threshold={0.95}
+          />
         </div>
 
         {/* Side panel: Suggested Actions + Source Citations + Leads (lawyer-friendly) */}
-        <div className="p-6 space-y-6 bg-[#FCFAF2]">
+        <div className="p-6 space-y-6 bg-[#FFFFFF]">
           {/* Suggested Next Steps — actionable recommendations */}
           {suggestedActions.length > 0 && (
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3 flex items-center gap-2">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-[#737373] mb-3 flex items-center gap-2">
                 <ArrowRightCircle size={12} />
                 Suggested Next Steps
               </div>
-              <p className="text-xs text-[#6B6B6B] mb-3">
+              <p className="text-xs text-[#737373] mb-3">
                 To follow up on your question, take these actions:
               </p>
               <div className="space-y-2">
                 {suggestedActions.map((action, idx) => (
                   <div
                     key={idx}
-                    className="flex items-start gap-2 p-3 rounded-lg border border-[#3A5A40]/50 bg-[#3A5A40]/5 hover:border-[#3A5A40] transition-colors"
+                    className="flex items-start gap-2 p-3 rounded-lg border border-[#2D6A4F]/50 bg-[#2D6A4F]/5 hover:border-[#2D6A4F] transition-colors"
                   >
-                    <span className="text-[#3A5A40] font-bold shrink-0 mt-0.5">{idx + 1}.</span>
-                    <p className="text-sm font-medium text-[#2B2B2B] leading-relaxed">
+                    <span className="text-[#2D6A4F] font-bold shrink-0 mt-0.5">{idx + 1}.</span>
+                    <p className="text-sm font-medium text-[#1A1A1A] leading-relaxed">
                       {action}
                     </p>
                   </div>
@@ -281,31 +311,31 @@ export default function EvidencePage() {
 
           {/* Source Citations — which documents support which facts */}
           <div>
-            <div className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3 flex items-center gap-2">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-[#737373] mb-3 flex items-center gap-2">
               <Scale size={12} />
               Source Citations
             </div>
-            <p className="text-xs text-[#6B6B6B] mb-3">
+            <p className="text-xs text-[#737373] mb-3">
               Trace each fact back to its source document. Use this to verify citations and build your case file.
             </p>
             <div className="space-y-4">
               {sourceCitations.map(({ doc, facts, crossDoc }, idx) => (
                 <div
                   key={idx}
-                  className="p-4 rounded-lg border border-[#4A4A4A]/30 bg-[#FCFAF2] hover:border-[#D4AF37]/40 transition-colors"
+                  className="p-4 rounded-lg border border-[#E5E5E3] bg-[#FFFFFF] hover:border-[#C5A028]/40 transition-colors"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <FileText size={14} className="text-[#8B1A1A] shrink-0" />
-                    <span className="text-sm font-semibold text-[#2B2B2B] truncate">
+                    <FileText size={14} className="text-[#7A1A1A] shrink-0" />
+                    <span className="text-sm font-semibold text-[#1A1A1A] truncate">
                       {doc}
                     </span>
                     {crossDoc && (
-                      <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-[#D4AF37]/20 text-[#8B6914] border border-[#D4AF37]/40 shrink-0">
+                      <span className="px-2 py-0.5 rounded text-[9px] font-medium bg-[#C5A028]/20 text-[#8B6914] border border-[#C5A028]/40 shrink-0">
                         Cross-doc
                       </span>
                     )}
                   </div>
-                  <ul className="space-y-1.5 text-xs text-[#4A4A4A] list-disc list-inside">
+                  <ul className="space-y-1.5 text-xs text-[#525252] list-disc list-inside">
                     {facts.map((fact, fidx) => (
                       <li key={fidx} className="leading-relaxed">
                         {fact}
@@ -320,29 +350,29 @@ export default function EvidencePage() {
           {/* Key Leads to Explore */}
           {leads.length > 0 && (
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3 flex items-center gap-2">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-[#737373] mb-3 flex items-center gap-2">
                 <FileText size={12} />
                 Leads to Explore
               </div>
-              <p className="text-xs text-[#6B6B6B] mb-3">
+              <p className="text-xs text-[#737373] mb-3">
                 Additional entities or concepts worth investigating for your case.
               </p>
               <div className="space-y-3">
                 {leads.map((lead, lidx) => (
                   <div
                     key={lidx}
-                    className="p-3 rounded-lg border border-[#D4AF37]/30 bg-[#D4AF37]/5"
+                    className="p-3 rounded-lg border border-[#C5A028]/30 bg-[#C5A028]/5"
                   >
-                    <p className="text-sm font-semibold text-[#2B2B2B]">
+                    <p className="text-sm font-semibold text-[#1A1A1A]">
                       {lead.name}
                     </p>
                     {lead.description && (
-                      <p className="text-xs text-[#6B6B6B] mt-1">
+                      <p className="text-xs text-[#737373] mt-1">
                         {lead.description}
                       </p>
                     )}
                     {lead.explanation && (
-                      <p className="text-xs text-[#2B2B2B] mt-2">
+                      <p className="text-xs text-[#1A1A1A] mt-2">
                         {lead.explanation}
                       </p>
                     )}
@@ -353,6 +383,7 @@ export default function EvidencePage() {
           )}
         </div>
         </div>
+        )}
       </main>
     </div>
   );
