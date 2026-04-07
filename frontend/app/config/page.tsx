@@ -120,9 +120,9 @@ export default function BackendConfigPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F2E9] text-[#2B2B2B] p-8 paper-texture">
+      <div className="min-h-screen bg-[#FAFAF8] text-[#1A1A1A] p-8 paper-texture">
         <header className="max-w-7xl mx-auto mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 text-[#6B6B6B] hover:text-[#D4AF37] transition-colors mb-6 group">
+          <Link href="/" className="inline-flex items-center gap-2 text-[#737373] hover:text-[#C5A028] transition-colors mb-6 group">
             <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
             <span className="text-sm font-medium">Back to Dashboard</span>
           </Link>
@@ -138,17 +138,17 @@ export default function BackendConfigPage() {
 
   if (!config) {
     return (
-      <div className="min-h-screen bg-[#F5F2E9] text-[#2B2B2B] flex flex-col items-center justify-center paper-texture p-8">
-        <div className="p-6 bg-[#E8E4D9]/80 rounded-full border border-[#4A4A4A]/30 mb-6">
-          <AlertTriangle className="text-[#8B1A1A]" size={48} />
+      <div className="min-h-screen bg-[#FAFAF8] text-[#1A1A1A] flex flex-col items-center justify-center paper-texture p-8">
+        <div className="p-6 bg-[#F5F5F3]/80 rounded-full border border-[#E5E5E3]/30 mb-6">
+          <AlertTriangle className="text-[#7A1A1A]" size={48} />
         </div>
-        <h2 className="text-xl font-semibold text-[#2B2B2B] mb-2" style={{fontFamily: 'EB Garamond, serif'}}>
+        <h2 className="text-xl font-semibold text-[#1A1A1A] mb-2" style={{fontFamily: 'EB Garamond, serif'}}>
           Configuration Unavailable
         </h2>
-        <p className="text-sm text-[#6B6B6B] max-w-md text-center mb-6">
+        <p className="text-sm text-[#737373] max-w-md text-center mb-6">
           Could not load backend configuration. Ensure the backend is running on port 8000 and try again.
         </p>
-        <Link href="/" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#D4AF37] hover:bg-[#B8941F] text-[#2B2B2B] rounded-sm font-semibold shadow-lg transition-all text-sm">
+        <Link href="/" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#C5A028] hover:bg-[#A68A1E] text-[#1A1A1A] rounded-sm font-semibold shadow-lg transition-all text-sm">
           Back to Dashboard
         </Link>
       </div>
@@ -156,10 +156,10 @@ export default function BackendConfigPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F2E9] text-[#2B2B2B] p-8 paper-texture">
+    <div className="min-h-screen bg-[#FAFAF8] text-[#1A1A1A] p-8 paper-texture">
       {/* Header */}
       <header className="max-w-7xl mx-auto mb-8">
-        <Link href="/" className="inline-flex items-center gap-2 text-[#6B6B6B] hover:text-[#D4AF37] transition-colors mb-6 group">
+        <Link href="/" className="inline-flex items-center gap-2 text-[#737373] hover:text-[#C5A028] transition-colors mb-6 group">
           <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
           <span className="font-medium">Back to Archive</span>
         </Link>
@@ -169,14 +169,14 @@ export default function BackendConfigPage() {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center gap-4"
         >
-          <div className="p-3 bg-[#8B1A1A] rounded-sm shadow-lg border border-[#4A4A4A]">
-            <Settings className="text-[#F5F2E9]" size={32} />
+          <div className="p-3 bg-[#7A1A1A] rounded-sm shadow-lg border border-[#E5E5E3]">
+            <Settings className="text-[#FAFAF8]" size={32} />
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight gradient-text" style={{fontFamily: 'EB Garamond, serif'}}>
               Archive Configuration
             </h1>
-            <p className="text-[#6B6B6B] text-sm font-mono uppercase tracking-widest mt-1">
+            <p className="text-[#737373] text-sm font-mono uppercase tracking-widest mt-1">
               Technical Specifications & System Details
             </p>
           </div>
@@ -185,7 +185,7 @@ export default function BackendConfigPage() {
 
       {/* Tab Navigation */}
       <div className="max-w-7xl mx-auto mb-8" role="tablist" aria-label="Configuration sections">
-        <div className="glass rounded-sm p-2 flex gap-2 overflow-x-auto border border-[#4A4A4A] cut-paper">
+        <div className="glass rounded-sm p-2 flex gap-2 overflow-x-auto border border-[#E5E5E3] cut-paper">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isSelected = activeTab === tab.id;
@@ -200,8 +200,8 @@ export default function BackendConfigPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-6 py-3 rounded-sm font-medium transition-all whitespace-nowrap border ${
                   isSelected
-                    ? "bg-[#D4AF37] text-[#2B2B2B] shadow-lg border-[#4A4A4A] font-semibold"
-                    : "text-[#6B6B6B] hover:text-[#2B2B2B] hover:bg-[#E8E4D9] border-transparent"
+                    ? "bg-[#C5A028] text-[#1A1A1A] shadow-lg border-[#E5E5E3] font-semibold"
+                    : "text-[#737373] hover:text-[#1A1A1A] hover:bg-[#F5F5F3] border-transparent"
                 }`}
               >
                 <Icon size={18} />
@@ -244,8 +244,8 @@ function OverviewTab({ stats, config, onRefresh, onAudit, auditing }: { stats: S
     return (
       <div className="glass rounded-sm p-8 text-center">
         <AlertTriangle className="text-amber-400 mx-auto mb-4" size={32} />
-        <p className="text-[#6B6B6B]">Could not load system status. Is the backend running?</p>
-        <button onClick={onRefresh} className="mt-4 px-4 py-2 bg-[#D4AF37]/20 text-[#2B2B2B] rounded-sm border border-[#D4AF37]/40 hover:bg-[#D4AF37]/30 transition-colors">
+        <p className="text-[#737373]">Could not load system status. Is the backend running?</p>
+        <button onClick={onRefresh} className="mt-4 px-4 py-2 bg-[#C5A028]/20 text-[#1A1A1A] rounded-sm border border-[#C5A028]/40 hover:bg-[#C5A028]/30 transition-colors">
           Retry
         </button>
       </div>
@@ -261,7 +261,7 @@ function OverviewTab({ stats, config, onRefresh, onAudit, auditing }: { stats: S
           <AlertTriangle className="text-amber-500 shrink-0" size={20} />
           <div>
             <p className="font-semibold text-amber-800">System status unavailable</p>
-            <p className="text-sm text-[#6B6B6B] mt-1">{stats.message}</p>
+            <p className="text-sm text-[#737373] mt-1">{stats.message}</p>
           </div>
         </div>
       )}
@@ -269,11 +269,11 @@ function OverviewTab({ stats, config, onRefresh, onAudit, auditing }: { stats: S
       {/* Top row: key numbers + refresh */}
       <div className="flex justify-between items-start">
         <div className="grid grid-cols-3 gap-4 flex-1 mr-4">
-          <StatCard label="Entities" value={stats?.entities ?? 0} icon={<Database className="text-[#D4AF37]" size={24} />} subtext={graphState === "evidence_ready_graph" ? "Graph ready" : graphState ?? "—"} delay={0} />
-          <StatCard label="Relationships" value={stats?.relationships ?? 0} icon={<Layers className="text-[#8B1A1A]" size={24} />} subtext={`${Math.round(stats?.embedding_progress ?? 0)}% embedded`} delay={0.05} />
-          <StatCard label="Audit" value={(auditReadiness?.state ?? "absent").toUpperCase()} icon={<ShieldCheck className="text-[#3A5A40]" size={24} />} subtext={formatAucRoc(auditReadiness?.latest_auc_roc) !== "—" ? `AUC-ROC: ${formatAucRoc(auditReadiness?.latest_auc_roc)}` : "Not run yet"} delay={0.1} />
+          <StatCard label="Entities" value={stats?.entities ?? 0} icon={<Database className="text-[#C5A028]" size={24} />} subtext={graphState === "evidence_ready_graph" ? "Graph ready" : graphState ?? "—"} delay={0} />
+          <StatCard label="Relationships" value={stats?.relationships ?? 0} icon={<Layers className="text-[#7A1A1A]" size={24} />} subtext={`${Math.round(stats?.embedding_progress ?? 0)}% embedded`} delay={0.05} />
+          <StatCard label="Audit" value={(auditReadiness?.state ?? "absent").toUpperCase()} icon={<ShieldCheck className="text-[#2D6A4F]" size={24} />} subtext={formatAucRoc(auditReadiness?.latest_auc_roc) !== "—" ? `AUC-ROC: ${formatAucRoc(auditReadiness?.latest_auc_roc)}` : "Not run yet"} delay={0.1} />
         </div>
-        <button onClick={onRefresh} className="flex items-center gap-2 px-3 py-2 bg-[#E8E4D9] hover:bg-[#D4AF37]/20 rounded-sm border border-[#4A4A4A] text-[#2B2B2B] transition-colors text-sm shrink-0">
+        <button onClick={onRefresh} className="flex items-center gap-2 px-3 py-2 bg-[#F5F5F3] hover:bg-[#C5A028]/20 rounded-sm border border-[#E5E5E3] text-[#1A1A1A] transition-colors text-sm shrink-0">
           <RefreshCw size={14} />
           Refresh
         </button>
@@ -281,31 +281,31 @@ function OverviewTab({ stats, config, onRefresh, onAudit, auditing }: { stats: S
 
       {/* Research KPIs — compact */}
       {stats?.research_kpis && (stats.research_kpis.gnn_auc_roc != null || stats.research_kpis.grounding_score != null) && (
-        <div className="glass rounded-sm p-5 border border-[#4A4A4A]/50">
-          <h3 className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3">Research KPIs</h3>
+        <div className="glass rounded-sm p-5 border border-[#E5E5E3]/50">
+          <h3 className="text-[10px] font-mono uppercase tracking-widest text-[#737373] mb-3">Research KPIs</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {stats.research_kpis.gnn_auc_roc != null && (
-              <div className="p-2.5 rounded-sm border border-[#3A5A40]/20 bg-[#3A5A40]/5">
-                <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B]">AUC-ROC</p>
-                <p className="text-base font-bold text-[#3A5A40] mt-0.5">{formatAucRoc(stats.research_kpis.gnn_auc_roc)}</p>
+              <div className="p-2.5 rounded-sm border border-[#2D6A4F]/20 bg-[#2D6A4F]/5">
+                <p className="text-[9px] font-mono uppercase tracking-widest text-[#737373]">AUC-ROC</p>
+                <p className="text-base font-bold text-[#2D6A4F] mt-0.5">{formatAucRoc(stats.research_kpis.gnn_auc_roc)}</p>
               </div>
             )}
             {stats.research_kpis.gnn_mrr != null && (
-              <div className="p-2.5 rounded-sm border border-[#3A5A40]/20 bg-[#3A5A40]/5">
-                <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B]">MRR</p>
-                <p className="text-base font-bold text-[#3A5A40] mt-0.5">{formatAucRoc(stats.research_kpis.gnn_mrr)}</p>
+              <div className="p-2.5 rounded-sm border border-[#2D6A4F]/20 bg-[#2D6A4F]/5">
+                <p className="text-[9px] font-mono uppercase tracking-widest text-[#737373]">MRR</p>
+                <p className="text-base font-bold text-[#2D6A4F] mt-0.5">{formatAucRoc(stats.research_kpis.gnn_mrr)}</p>
               </div>
             )}
             {stats.research_kpis.grounding_score != null && (
-              <div className="p-2.5 rounded-sm border border-[#3A5A40]/20 bg-[#3A5A40]/5">
-                <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B]">Grounding</p>
-                <p className="text-base font-bold text-[#3A5A40] mt-0.5">{formatScore(stats.research_kpis.grounding_score)}</p>
+              <div className="p-2.5 rounded-sm border border-[#2D6A4F]/20 bg-[#2D6A4F]/5">
+                <p className="text-[9px] font-mono uppercase tracking-widest text-[#737373]">Grounding</p>
+                <p className="text-base font-bold text-[#2D6A4F] mt-0.5">{formatScore(stats.research_kpis.grounding_score)}</p>
               </div>
             )}
             {stats.research_kpis.faithfulness_score != null && (
-              <div className="p-2.5 rounded-sm border border-[#3A5A40]/20 bg-[#3A5A40]/5">
-                <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B]">Faithfulness</p>
-                <p className="text-base font-bold text-[#3A5A40] mt-0.5">{formatScore(stats.research_kpis.faithfulness_score)}</p>
+              <div className="p-2.5 rounded-sm border border-[#2D6A4F]/20 bg-[#2D6A4F]/5">
+                <p className="text-[9px] font-mono uppercase tracking-widest text-[#737373]">Faithfulness</p>
+                <p className="text-base font-bold text-[#2D6A4F] mt-0.5">{formatScore(stats.research_kpis.faithfulness_score)}</p>
               </div>
             )}
           </div>
@@ -313,29 +313,29 @@ function OverviewTab({ stats, config, onRefresh, onAudit, auditing }: { stats: S
       )}
 
       {/* Encoding progress + Audit trigger */}
-      <div className="glass rounded-sm p-5 border border-[#4A4A4A]">
+      <div className="glass rounded-sm p-5 border border-[#E5E5E3]">
         <div className="flex justify-between items-center mb-3">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <Activity size={16} className="text-[#D4AF37]" />
+            <Activity size={16} className="text-[#C5A028]" />
             Semantic Encoding
           </h3>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-[#6B6B6B]">{stats?.feature_complete ?? 0} / {stats?.entities ?? 0}</span>
+            <span className="text-xs font-mono text-[#737373]">{stats?.feature_complete ?? 0} / {stats?.entities ?? 0}</span>
             <button
               onClick={onAudit}
               disabled={!canRunAudit}
-              className={`flex items-center gap-2 px-3 py-1 rounded-sm text-[10px] uppercase font-bold tracking-widest transition-all border ${auditing ? "bg-[#E8E4D9] text-[#6B6B6B] border-[#4A4A4A]" : "bg-[#8B1A1A]/10 text-[#8B1A1A] border-[#8B1A1A]/30 hover:bg-[#8B1A1A]/20"}`}
+              className={`flex items-center gap-2 px-3 py-1 rounded-sm text-[10px] uppercase font-bold tracking-widest transition-all border ${auditing ? "bg-[#F5F5F3] text-[#737373] border-[#E5E5E3]" : "bg-[#7A1A1A]/10 text-[#7A1A1A] border-[#7A1A1A]/30 hover:bg-[#7A1A1A]/20"}`}
             >
               {auditing ? <RefreshCw size={10} className="animate-spin" /> : <ShieldCheck size={10} />}
               {auditing ? "Auditing..." : "Run Audit"}
             </button>
           </div>
         </div>
-        <div className="w-full bg-[#E8E4D9] rounded-sm h-2.5 overflow-hidden border border-[#4A4A4A]">
+        <div className="w-full bg-[#F5F5F3] rounded-sm h-2.5 overflow-hidden border border-[#E5E5E3]">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${stats?.embedding_progress ?? 0}%` }}
-            className="h-full bg-linear-to-r from-[#D4AF37] to-[#B8941F]"
+            className="h-full bg-linear-to-r from-[#C5A028] to-[#A68A1E]"
           />
         </div>
       </div>
@@ -343,17 +343,17 @@ function OverviewTab({ stats, config, onRefresh, onAudit, auditing }: { stats: S
       {/* Readiness — two columns */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="glass rounded-sm p-5">
-          <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3">Graph Readiness</h4>
-          <p className="font-semibold text-sm text-[#2B2B2B] mb-2">{graphState ?? "unknown"}</p>
-          <div className="space-y-1 text-xs text-[#6B6B6B]">
+          <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#737373] mb-3">Graph Readiness</h4>
+          <p className="font-semibold text-sm text-[#1A1A1A] mb-2">{graphState ?? "unknown"}</p>
+          <div className="space-y-1 text-xs text-[#737373]">
             <p>Documents: {graphReadiness?.source_documents ?? 0} | Provenance: {graphReadiness?.provenance_covered_nodes ?? 0}</p>
             <p>Ingestion: {graphReadiness?.latest_ingestion_status ?? "unknown"} | Processed: {graphReadiness?.latest_documents_processed ?? 0}</p>
           </div>
         </div>
         <div className="glass rounded-sm p-5">
-          <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3">Audit Readiness</h4>
-          <p className="font-semibold text-sm text-[#2B2B2B] mb-2">{auditReadiness?.state ?? "unknown"}</p>
-          <div className="space-y-1 text-xs text-[#6B6B6B]">
+          <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#737373] mb-3">Audit Readiness</h4>
+          <p className="font-semibold text-sm text-[#1A1A1A] mb-2">{auditReadiness?.state ?? "unknown"}</p>
+          <div className="space-y-1 text-xs text-[#737373]">
             <p>Coverage: {auditReadiness?.audited_relationships ?? 0} / {auditReadiness?.total_relationships ?? 0}</p>
             <p>Mode: {auditReadiness?.latest_audit_mode ?? "—"} | AUC-ROC: {formatAucRoc(auditReadiness?.latest_auc_roc)}</p>
           </div>
@@ -362,7 +362,7 @@ function OverviewTab({ stats, config, onRefresh, onAudit, auditing }: { stats: S
 
       {/* Checklist */}
       <div className="glass rounded-sm p-5">
-        <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3">System Checklist</h4>
+        <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#737373] mb-3">System Checklist</h4>
         <div className="space-y-3">
           <AuditItem label="Neo4j Connected" success={stats?.status === "healthy"} />
           <AuditItem label="Graph Evidence Ready" success={graphState === "evidence_ready_graph"} />
@@ -384,13 +384,13 @@ function PipelineModelsTab({ pipeline, models }: { pipeline: any; models: any })
     <div className="space-y-6">
       <div className="glass rounded-sm p-6">
         <h2 className="text-2xl font-bold mb-2 flex items-center gap-3">
-          <Workflow className="text-[#D4AF37]" size={28} />
+          <Workflow className="text-[#C5A028]" size={28} />
           Pipeline & Models
         </h2>
-        <p className="text-[#6B6B6B] mb-6">End-to-end flow from PDF ingestion to evaluation</p>
+        <p className="text-[#737373] mb-6">End-to-end flow from PDF ingestion to evaluation</p>
         <div className="flex flex-wrap gap-2 mb-6">
           {pipeline?.stages?.map((stage: any, idx: number) => (
-            <span key={idx} className="px-3 py-1.5 bg-[#E8E4D9] border border-[#4A4A4A] rounded-sm text-xs font-medium text-[#2B2B2B]">
+            <span key={idx} className="px-3 py-1.5 bg-[#F5F5F3] border border-[#E5E5E3] rounded-sm text-xs font-medium text-[#1A1A1A]">
               {stage.order}. {stage.name}
             </span>
           ))}
@@ -398,8 +398,8 @@ function PipelineModelsTab({ pipeline, models }: { pipeline: any; models: any })
 
         {/* Mermaid in details */}
         <details className="mt-4">
-          <summary className="cursor-pointer text-sm font-medium text-[#6B6B6B] hover:text-[#D4AF37]">Copy architecture diagram (Mermaid)</summary>
-          <pre className="mt-2 bg-[#2B2B2B] text-[#E8E4D9] p-4 rounded-sm text-xs overflow-x-auto font-mono">
+          <summary className="cursor-pointer text-sm font-medium text-[#737373] hover:text-[#C5A028]">Copy architecture diagram (Mermaid)</summary>
+          <pre className="mt-2 bg-[#1A1A1A] text-[#F5F5F3] p-4 rounded-sm text-xs overflow-x-auto font-mono">
 {`flowchart TB
   PDF[PDF Documents] --> S1
   S1[1. PDF Ingestion] --> S2[2. Entity Extraction]
@@ -416,7 +416,7 @@ function PipelineModelsTab({ pipeline, models }: { pipeline: any; models: any })
 
       {!hasModels ? (
         <div className="glass rounded-sm p-8 text-center">
-          <p className="text-[#6B6B6B]">Model configuration not available</p>
+          <p className="text-[#737373]">Model configuration not available</p>
         </div>
       ) : (
         <>
@@ -427,20 +427,20 @@ function PipelineModelsTab({ pipeline, models }: { pipeline: any; models: any })
             subtitle={models.llm.model}
             isOpen={openSection === "llm"}
             onToggle={() => setOpenSection(openSection === "llm" ? "" : "llm")}
-            icon={<Zap className="text-[#D4AF37]" size={24} />}
+            icon={<Zap className="text-[#C5A028]" size={24} />}
           >
-            <p className="text-sm text-[#6B6B6B] mb-4">{models.llm.purpose}</p>
+            <p className="text-sm text-[#737373] mb-4">{models.llm.purpose}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {models.llm.hyperparameters && (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-[#D4AF37] uppercase">Hyperparameters</h4>
+                  <h4 className="text-xs font-semibold text-[#C5A028] uppercase">Hyperparameters</h4>
                   <DetailRow label="Temperature" value={models.llm.hyperparameters.temperature} />
                   <DetailRow label="Max Output Tokens" value={models.llm.hyperparameters.max_output_tokens?.toLocaleString()} />
                 </div>
               )}
               {models.llm.extraction_config && (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-[#D4AF37] uppercase">Extraction</h4>
+                  <h4 className="text-xs font-semibold text-[#C5A028] uppercase">Extraction</h4>
                   <DetailRow label="Entity Types" value={Array.isArray(models.llm.extraction_config.entity_types) ? models.llm.extraction_config.entity_types.slice(0, 3).join(", ") + "…" : "-"} />
                 </div>
               )}
@@ -454,9 +454,9 @@ function PipelineModelsTab({ pipeline, models }: { pipeline: any; models: any })
             subtitle={models.embedder.full_model_name}
             isOpen={openSection === "embedder"}
             onToggle={() => setOpenSection(openSection === "embedder" ? "" : "embedder")}
-            icon={<Layers className="text-[#8B1A1A]" size={24} />}
+            icon={<Layers className="text-[#7A1A1A]" size={24} />}
           >
-            <p className="text-sm text-[#6B6B6B] mb-4">{models.embedder.purpose}</p>
+            <p className="text-sm text-[#737373] mb-4">{models.embedder.purpose}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {models.embedder.architecture && (
                 <div className="space-y-2">
@@ -474,9 +474,9 @@ function PipelineModelsTab({ pipeline, models }: { pipeline: any; models: any })
             subtitle="Relationship plausibility scoring"
             isOpen={openSection === "gnn"}
             onToggle={() => setOpenSection(openSection === "gnn" ? "" : "gnn")}
-            icon={<ShieldCheck className="text-[#3A5A40]" size={24} />}
+            icon={<ShieldCheck className="text-[#2D6A4F]" size={24} />}
           >
-            <p className="text-sm text-[#6B6B6B] mb-4">{models.gnn.purpose}</p>
+            <p className="text-sm text-[#737373] mb-4">{models.gnn.purpose}</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {models.gnn.training && (
                 <div className="space-y-2">
@@ -495,9 +495,9 @@ function PipelineModelsTab({ pipeline, models }: { pipeline: any; models: any })
               subtitle={models.retriever.type}
               isOpen={openSection === "retriever"}
               onToggle={() => setOpenSection(openSection === "retriever" ? "" : "retriever")}
-              icon={<Network className="text-[#6B6B6B]" size={24} />}
+              icon={<Network className="text-[#737373]" size={24} />}
             >
-              <p className="text-sm text-[#6B6B6B]">{models.retriever.purpose}</p>
+              <p className="text-sm text-[#737373]">{models.retriever.purpose}</p>
             </AccordionSection>
           )}
 
@@ -509,9 +509,9 @@ function PipelineModelsTab({ pipeline, models }: { pipeline: any; models: any })
               subtitle={models.ingestion.pipeline}
               isOpen={openSection === "ingestion"}
               onToggle={() => setOpenSection(openSection === "ingestion" ? "" : "ingestion")}
-              icon={<Box className="text-[#6B6B6B]" size={24} />}
+              icon={<Box className="text-[#737373]" size={24} />}
             >
-              <p className="text-sm text-[#6B6B6B]">{models.ingestion.purpose}</p>
+              <p className="text-sm text-[#737373]">{models.ingestion.purpose}</p>
             </AccordionSection>
           )}
         </>
@@ -522,22 +522,22 @@ function PipelineModelsTab({ pipeline, models }: { pipeline: any; models: any })
 
 function AccordionSection({ id, title, subtitle, isOpen, onToggle, icon, children }: { id: string; title: string; subtitle?: string; isOpen: boolean; onToggle: () => void; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="glass rounded-sm border border-[#4A4A4A]/50 overflow-hidden">
+    <div className="glass rounded-sm border border-[#E5E5E3]/50 overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-[#E8E4D9]/50 transition-colors"
+        className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-[#F5F5F3]/50 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[#F5F2E9] rounded-sm">{icon}</div>
+          <div className="p-2 bg-[#FAFAF8] rounded-sm">{icon}</div>
           <div>
-            <h3 className="font-semibold text-[#2B2B2B]">{title}</h3>
-            {subtitle && <p className="text-xs text-[#6B6B6B] font-mono">{subtitle}</p>}
+            <h3 className="font-semibold text-[#1A1A1A]">{title}</h3>
+            {subtitle && <p className="text-xs text-[#737373] font-mono">{subtitle}</p>}
           </div>
         </div>
-        {isOpen ? <ChevronDown size={18} className="text-[#6B6B6B]" /> : <ChevronRight size={18} className="text-[#6B6B6B]" />}
+        {isOpen ? <ChevronDown size={18} className="text-[#737373]" /> : <ChevronRight size={18} className="text-[#737373]" />}
       </button>
-      {isOpen && <div className="p-4 pt-0 border-t border-[#4A4A4A]/30">{children}</div>}
+      {isOpen && <div className="p-4 pt-0 border-t border-[#E5E5E3]/30">{children}</div>}
     </div>
   );
 }
@@ -576,18 +576,18 @@ function GraphAuditTab({ connections, pipeline, neo4j, audit, evaluation }: { co
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>
-            <h3 className="text-sm font-semibold text-[#6B6B6B] uppercase mb-2">Node Types</h3>
+            <h3 className="text-sm font-semibold text-[#737373] uppercase mb-2">Node Types</h3>
             <div className="flex flex-wrap gap-2">
               {pipeline?.schema?.node_types?.map((type: string, idx: number) => (
-                <span key={idx} className="px-2 py-1 bg-[#D4AF37]/10 text-[#D4AF37] rounded text-xs">{type}</span>
+                <span key={idx} className="px-2 py-1 bg-[#C5A028]/10 text-[#C5A028] rounded text-xs">{type}</span>
               ))}
             </div>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-[#6B6B6B] uppercase mb-2">Relationship Types</h3>
+            <h3 className="text-sm font-semibold text-[#737373] uppercase mb-2">Relationship Types</h3>
             <div className="flex flex-wrap gap-2">
               {pipeline?.schema?.relationship_types?.map((type: string, idx: number) => (
-                <span key={idx} className="px-2 py-1 bg-[#8B1A1A]/10 text-[#8B1A1A] rounded text-xs">{type}</span>
+                <span key={idx} className="px-2 py-1 bg-[#7A1A1A]/10 text-[#7A1A1A] rounded text-xs">{type}</span>
               ))}
             </div>
           </div>
@@ -602,7 +602,7 @@ function GraphAuditTab({ connections, pipeline, neo4j, audit, evaluation }: { co
             {connections.relationship_distribution.slice(0, 10).map((rel: any, idx: number) => (
               <div key={idx} className="flex justify-between items-center text-sm">
                 <span className="font-mono">{rel.type}</span>
-                <span className="text-[#6B6B6B]">{rel.count?.toLocaleString()}</span>
+                <span className="text-[#737373]">{rel.count?.toLocaleString()}</span>
               </div>
             ))}
           </div>
@@ -625,7 +625,7 @@ function GraphAuditTab({ connections, pipeline, neo4j, audit, evaluation }: { co
       {/* Audit Results Summary + Low Confidence Table */}
       <div className="glass rounded-sm p-6">
         <h3 className="font-semibold mb-4 flex items-center gap-2">
-          <ShieldCheck size={18} className="text-[#D4AF37]" />
+          <ShieldCheck size={18} className="text-[#C5A028]" />
           GNN Audit Results
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -637,18 +637,18 @@ function GraphAuditTab({ connections, pipeline, neo4j, audit, evaluation }: { co
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#4A4A4A]">
-                  <th className="text-left py-2 px-3 text-[#6B6B6B]">Source</th>
-                  <th className="text-left py-2 px-3 text-[#6B6B6B]">Relation</th>
-                  <th className="text-left py-2 px-3 text-[#6B6B6B]">Target</th>
-                  <th className="text-right py-2 px-3 text-[#6B6B6B]">Score</th>
+                <tr className="border-b border-[#E5E5E3]">
+                  <th className="text-left py-2 px-3 text-[#737373]">Source</th>
+                  <th className="text-left py-2 px-3 text-[#737373]">Relation</th>
+                  <th className="text-left py-2 px-3 text-[#737373]">Target</th>
+                  <th className="text-right py-2 px-3 text-[#737373]">Score</th>
                 </tr>
               </thead>
               <tbody>
                 {lowConfidence.slice(0, 15).map((edge: any, idx: number) => (
-                  <tr key={idx} className="border-b border-[#4A4A4A]/50">
+                  <tr key={idx} className="border-b border-[#E5E5E3]/50">
                     <td className="py-2 px-3 font-mono text-xs">{edge.source}</td>
-                    <td className="py-2 px-3 text-[#6B6B6B]">{edge.relation}</td>
+                    <td className="py-2 px-3 text-[#737373]">{edge.relation}</td>
                     <td className="py-2 px-3 font-mono text-xs">{edge.target}</td>
                     <td className="py-2 px-3 text-right text-amber-500 font-mono">{edge.score?.toFixed(3)}</td>
                   </tr>
@@ -669,7 +669,7 @@ function SystemTab({ techStack, endpoints, environment, synthesis }: { techStack
       {/* Environment */}
       <div className="glass rounded-sm p-6">
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-3">
-          <Server className="text-[#D4AF37]" size={28} />
+          <Server className="text-[#C5A028]" size={28} />
           Environment
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -682,7 +682,7 @@ function SystemTab({ techStack, endpoints, environment, synthesis }: { techStack
       {/* Synthesis Config */}
       <div className="glass rounded-sm p-6">
         <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-          <Zap className="text-[#8B1A1A]" size={20} />
+          <Zap className="text-[#7A1A1A]" size={20} />
           Synthesis Layer Configuration
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -692,10 +692,10 @@ function SystemTab({ techStack, endpoints, environment, synthesis }: { techStack
           <DetailRow label="Strategy" value={synthesis.strategy} />
         </div>
         <div className="mt-4">
-          <p className="text-xs text-[#6B6B6B] mb-2">Features:</p>
+          <p className="text-xs text-[#737373] mb-2">Features:</p>
           <div className="flex flex-wrap gap-2">
             {synthesis.features.map((feature: string, idx: number) => (
-              <span key={idx} className="text-xs bg-[#8B1A1A]/10 text-[#8B1A1A] px-3 py-1 rounded-sm border border-[#8B1A1A]/20">
+              <span key={idx} className="text-xs bg-[#7A1A1A]/10 text-[#7A1A1A] px-3 py-1 rounded-sm border border-[#7A1A1A]/20">
                 {feature}
               </span>
             ))}
@@ -716,11 +716,11 @@ function SystemTab({ techStack, endpoints, environment, synthesis }: { techStack
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: idx * 0.03 }}
-              className="bg-[#E8E4D9]/80 p-3 rounded-sm border border-[#4A4A4A] hover:border-[#D4AF37]/50 transition-all group"
+              className="bg-[#F5F5F3]/80 p-3 rounded-sm border border-[#E5E5E3] hover:border-[#C5A028]/50 transition-all group"
             >
-              <h4 className="font-semibold text-sm mb-1 group-hover:text-[#D4AF37] transition-colors">{tech.name}</h4>
-              <p className="text-xs text-[#6B6B6B] mb-1">{tech.version}</p>
-              <p className="text-xs text-[#6B6B6B]">{tech.role}</p>
+              <h4 className="font-semibold text-sm mb-1 group-hover:text-[#C5A028] transition-colors">{tech.name}</h4>
+              <p className="text-xs text-[#737373] mb-1">{tech.version}</p>
+              <p className="text-xs text-[#737373]">{tech.role}</p>
             </motion.div>
           ))}
         </div>
@@ -739,17 +739,17 @@ function SystemTab({ techStack, endpoints, environment, synthesis }: { techStack
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.02 }}
-              className="flex items-center gap-4 p-3 bg-[#E8E4D9]/50 rounded-sm hover:bg-[#E8E4D9]/80 transition-colors"
+              className="flex items-center gap-4 p-3 bg-[#F5F5F3]/50 rounded-sm hover:bg-[#F5F5F3]/80 transition-colors"
             >
               <span className={`px-2 py-1 rounded text-xs font-mono font-bold ${
                 endpoint.method === "GET" ? "bg-emerald-500/10 text-emerald-400" :
-                endpoint.method === "POST" ? "bg-[#D4AF37]/10 text-[#D4AF37]" :
+                endpoint.method === "POST" ? "bg-[#C5A028]/10 text-[#C5A028]" :
                 "bg-rose-500/10 text-rose-400"
               }`}>
                 {endpoint.method}
               </span>
-              <code className="text-sm font-mono text-[#2B2B2B] flex-1">{endpoint.path}</code>
-              <span className="text-xs text-[#6B6B6B]">{endpoint.description}</span>
+              <code className="text-sm font-mono text-[#1A1A1A] flex-1">{endpoint.path}</code>
+              <span className="text-xs text-[#737373]">{endpoint.description}</span>
             </motion.div>
           ))}
         </div>
@@ -761,10 +761,10 @@ function SystemTab({ techStack, endpoints, environment, synthesis }: { techStack
 // Helper Components
 function InfoCard({ label, value, icon }: { label: string; value: any; icon?: React.ReactNode }) {
   return (
-    <div className="bg-[#E8E4D9]/80 p-4 rounded-sm border border-[#4A4A4A]">
+    <div className="bg-[#F5F5F3]/80 p-4 rounded-sm border border-[#E5E5E3]">
       <div className="flex items-center gap-2 mb-1">
         {icon}
-        <p className="text-xs text-[#6B6B6B]">{label}</p>
+        <p className="text-xs text-[#737373]">{label}</p>
       </div>
       <p className="font-semibold text-sm truncate">{value}</p>
     </div>
@@ -773,8 +773,8 @@ function InfoCard({ label, value, icon }: { label: string; value: any; icon?: Re
 
 function DetailRow({ label, value }: { label: string; value: any }) {
   return (
-    <div className="flex justify-between items-center py-2 border-b border-[#4A4A4A]">
-      <span className="text-xs text-[#6B6B6B]">{label}</span>
+    <div className="flex justify-between items-center py-2 border-b border-[#E5E5E3]">
+      <span className="text-xs text-[#737373]">{label}</span>
       <span className="text-sm font-medium">{value}</span>
     </div>
   );

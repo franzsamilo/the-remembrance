@@ -41,4 +41,4 @@ def test_chat_stream_returns_sse(client):
         if line.startswith("data: "):
             data = json.loads(line[6:])
             assert "type" in data
-            assert data["type"] in ("chunk", "done", "error")
+            assert data["type"] in ("chunk", "done", "error", "grounding_error")
