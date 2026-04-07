@@ -43,7 +43,7 @@ class GraphRetriever:
                 WITH n, gds.similarity.cosine(n.embedding, $query_vec) as score
                 ORDER BY score DESC
                 LIMIT $limit
-                RETURN id(n) as id, n.name as name, labels(n)[0] as label, n.description as desc
+                RETURN elementId(n) as id, n.name as name, labels(n)[0] as label, n.description as desc
                 """
                 
                 # Check if GDS is available, if not fallback to manual top-N
@@ -57,7 +57,7 @@ class GraphRetriever:
                   AND n.embedding IS NOT NULL
                   AND n.embedding_model = $embedding_model
                   AND coalesce(n.embedding_dimension, 0) = $embedding_dimension
-                RETURN id(n) as id, n.name as name, n.embedding as emb, n.description as desc
+                RETURN elementId(n) as id, n.name as name, n.embedding as emb, n.description as desc
                 LIMIT 100
                 """
                 
@@ -68,11 +68,15 @@ class GraphRetriever:
                     embedding_dimension=Config.EMBEDDING_DIMENSION,
                 )
                 candidates = []
+                query_norm = np.linalg.norm(query_vector)
+                if query_norm == 0:
+                    return "Query could not be embedded.", [], []
                 for record in seed_results:
                     emb = np.array(record["emb"])
-                    if emb.size == 0 or np.linalg.norm(emb) == 0 or np.linalg.norm(query_vector) == 0:
+                    emb_norm = np.linalg.norm(emb)
+                    if emb.size == 0 or emb_norm == 0:
                         continue
-                    score = np.dot(emb, query_vector) / (np.linalg.norm(emb) * np.linalg.norm(query_vector))
+                    score = np.dot(emb, query_vector) / (emb_norm * query_norm)
                     candidates.append({
                         "id": record["id"],
                         "name": record["name"],
@@ -91,7 +95,7 @@ class GraphRetriever:
                 # Fetch paths and relationships with provenance for legal citation
                 discovery_query = """
                 MATCH (s)-[r]->(t)
-                WHERE (id(s) IN $seeds OR id(t) IN $seeds)
+                WHERE (elementId(s) IN $seeds OR elementId(t) IN $seeds)
                   AND type(r) <> 'FROM_CHUNK'
                 RETURN s.name as source, type(r) as rel, t.name as target,
                        coalesce(r.plausibility_score, r.audit_score) as audit,
@@ -149,7 +153,7 @@ class GraphRetriever:
                 leads = []
                 
                 community_query = """
-                MATCH (n) WHERE id(n) = $id
+                MATCH (n) WHERE elementId(n) = $id
                 WITH n.community as comm
                 WHERE comm IS NOT NULL
                 MATCH (m) WHERE m.community = comm AND m.name <> n.name

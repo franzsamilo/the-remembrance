@@ -93,21 +93,7 @@ class Config:
     RATE_LIMIT_REQUESTS = int(os.getenv("RATE_LIMIT_REQUESTS", 60))
     RATE_LIMIT_WINDOW_SEC = int(os.getenv("RATE_LIMIT_WINDOW_SEC", 60))
 
-    # Aura Agent (Module 3) - OAuth client credentials
-    AURA_AGENT_ENDPOINT = os.getenv("AURA_AGENT_ENDPOINT") or os.getenv("EXTERNAL_AGENT_ENDPOINT")
-    AURA_CLIENT_ID = os.getenv("AURA_CLIENT_ID")
-    AURA_CLIENT_SECRET = os.getenv("AURA_CLIENT_SECRET")
-    AURA_TOKEN_URL = os.getenv("AURA_TOKEN_URL", "https://api.neo4j.io/oauth/token")
-    AURA_AGENT_TIMEOUT_SECONDS = int(os.getenv("AURA_AGENT_TIMEOUT_SECONDS", 45))
-    AURA_AGENT_MAX_RETRIES = int(os.getenv("AURA_AGENT_MAX_RETRIES", 3))
-    AURA_AGENT_RETRY_BACKOFF = float(os.getenv("AURA_AGENT_RETRY_BACKOFF", 1.0))
     GROUNDING_MIN_SCORE = float(os.getenv("GROUNDING_MIN_SCORE", 0.95))
-    PREFER_LOCAL_GRAPH = os.getenv("PREFER_LOCAL_GRAPH", "true").lower() == "true"
-
-    @classmethod
-    def aura_configured(cls) -> bool:
-        """True if Aura Agent integration can be used."""
-        return bool(cls.AURA_AGENT_ENDPOINT and cls.AURA_CLIENT_ID and cls.AURA_CLIENT_SECRET)
 
     @classmethod
     def validate(cls):
@@ -115,9 +101,15 @@ class Config:
         if not cls.NEO4J_URI: missing.append("NEO4J_URI")
         if not cls.NEO4J_PASSWORD: missing.append("NEO4J_PASSWORD")
         if not cls.GOOGLE_API_KEY: missing.append("GOOGLE_API_KEY")
-        
+
         if missing:
             raise ValueError(f"Missing required environment variables: {', '.join(missing)}")
+
+        # Validate Neo4j labels are safe for Cypher interpolation
+        from src.helpers import validate_neo4j_label
+        validate_neo4j_label(cls.SOURCE_DOCUMENT_LABEL, "SOURCE_DOCUMENT_LABEL")
+        validate_neo4j_label(cls.INGESTION_RUN_LABEL, "INGESTION_RUN_LABEL")
+        validate_neo4j_label(cls.AUDIT_RUN_LABEL, "AUDIT_RUN_LABEL")
 
 # Global instances
 Config.validate()

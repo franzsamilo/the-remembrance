@@ -1,4 +1,4 @@
-﻿A GNN-Augmented Framework for Semantic Integrity Validation and Grounded Reasoning in Professional Knowledge Systems
+A GNN-Augmented Framework for Semantic Integrity Validation and Grounded Reasoning in Professional Knowledge Systems
 
 
 A Capstone Project
@@ -15,23 +15,28 @@ Bachelor of Science in Software Engineering
 
 
 By
-Samilo, Franz Eliezer E.        
+Samilo, Franz Eliezer E.
 March 2026
 Abstract
 Professional knowledge synthesis faces a dual crisis: manual review is statistically unreliable (85% error rates in systematic reviews), while generative AI hallucinates. This study proposes a "Validate-then-Generate" architecture that inserts a CompGCN-based integrity layer between retrieval and synthesis. The system (1) ingests PDFs into a knowledge graph, (2) assigns plausibility scores to every relationship via link prediction, (3) filters retrieved triplets by score before passing them to the LLM, and (4) exposes provenance (source documents, cross-document links) in an audit trail. Evaluation targets: AUC-ROC > 0.95, MRR > 0.95, Grounding > 98%. A prototype demonstrates the feasibility of the approach for high-stakes domains such as legal research.
 Keywords: Knowledge Graph, Graph Neural Network, CompGCN, Semantic Integrity, Retrieval-Augmented Generation, Hallucination, Plausibility Scoring, Provenance, Auditable AI.
 Chapter 1: Introduction
 1.1 Background and Rationale
-The domain of high-stakes professional knowledge work that involves volumetric data and complex investigative analysis has entered a precarious state of "Information Ambiguity." In this contemporary landscape, the synthesis of information is no longer a straightforward task of aggregation but a forensic challenge of verification. Practitioners in these fields—legal researchers, meta-analysts, medical evidence synthesizers, and policy analysts—where factual precision is the primary currency, find themselves trapped in a "Professional Deadlock." This crisis is characterized by the simultaneous collapse of traditional manual review processes, which are buckling under the sheer volume of data, and the inherent unreliability of existing generative artificial intelligence (AI) architectures, which prioritize fluency over factual accountability.
-The proliferation of digital literature has created an unprecedented data velocity. A single domain may produce thousands of peer-reviewed papers, legal precedents, or regulatory documents annually. Human reviewers cannot process this volume without sacrificing accuracy; the result is a trade-off between comprehensiveness and correctness. At the same time, Large Language Models (LLMs) have emerged as powerful tools for text generation, but they lack an internal mechanism to verify facts. When asked to synthesize information, they may produce plausible-sounding but entirely fabricated citations—a phenomenon known as "hallucination." The magnitude of this crisis is underscored by recent metrics in scientific publishing that signal a systemic failure in the peer-review and manual verification pipeline. In 2023, the academic community witnessed a shattering of the "trust ceiling" when Retraction Watch reported that more than 10,000 research papers were retracted in a single year, a new global record. This surge was not merely a statistical anomaly but a symptom of the industrialization of "paper mills" and "semantic fraud," confirming that the corpus of professional literature is no longer a pristine sanctuary of truth but a contested battlespace of verifiable and fabricated claims. The retraction of over 8,000 papers from Hindawi journals alone highlighted how systemic vulnerabilities in manual review processes could be exploited at scale.
+The domain of high-stakes professional knowledge work that involves volumetric data and complex investigative analysis has entered a precarious state of "Information Ambiguity." In this contemporary landscape, the synthesis of information is no longer a straightforward task of aggregation but a verification challenge. Practitioners in these fields—legal researchers, meta-analysts, medical evidence synthesizers, and policy analysts—where factual precision is the primary currency, find themselves trapped in a "Professional Deadlock." This crisis is characterized by the simultaneous collapse of traditional manual review processes, which are buckling under the sheer volume of data, and the inherent unreliability of existing generative artificial intelligence (AI) architectures, which prioritize fluency over factual accountability.
+
+The proliferation of digital literature has created an unprecedented data velocity. A single domain may produce thousands of peer-reviewed papers, legal precedents, or regulatory documents annually. Human reviewers cannot process this volume without sacrificing accuracy; the result is a trade-off between comprehensiveness and correctness.
+
+At the same time, Large Language Models (LLMs) have emerged as powerful tools for text generation, but they lack an internal mechanism to verify facts. When asked to synthesize information, they may produce plausible-sounding but entirely fabricated citations—a phenomenon known as "hallucination." The magnitude of this crisis is underscored by recent metrics in scientific publishing that signal a systemic failure in the peer-review and manual verification pipeline. In 2023, the academic community witnessed a surpassing of established confidence thresholds when Retraction Watch reported that more than 10,000 research papers were retracted in a single year, a new global record. This surge was not merely a statistical anomaly but a symptom of the industrialization of "paper mills" and "semantic fraud," confirming that the corpus of professional literature contains both verifiable and fabricated claims. The retraction of over 8,000 papers from Hindawi journals alone highlighted how systemic vulnerabilities in manual review processes could be exploited at scale.
+
 Simultaneously, the severity of the AI hallucination threat compelled the editorial board of Nature to issue a landmark policy in 2023, explicitly banning AI tools from being listed as authors on research papers. The rationale was rooted in the fundamental principle of scientific accountability: "an attribution of authorship carries with it accountability for the work, which cannot be effectively applied to LLMs."
-The convergence of these two failures creates a critical gap in the professional knowledge ecosystem. The deadlock presents a binary choice between two unacceptable options: the prohibitive inefficiecancy of manual verification and the inherent untrustworthiness of stochastic generation. This phenomenon is defined by a "Dual Deficit" that threatens the integrity of the professional record:
+
+The convergence of these two failures creates a critical gap in the professional knowledge ecosystem. The deadlock presents a binary choice between two unacceptable options: the prohibitive inefficiency of manual verification and the inherent untrustworthiness of stochastic generation. This phenomenon is defined by a "Dual Deficit" that threatens the integrity of the professional record:
 1. The Manual Integrity Deficit: The empirically proven failure of human operators to accurately extract and synthesize data from massive datasets due to cognitive fatigue and the limitations of linear tools (e.g., spreadsheets).
 2. The AI Trust Deficit: The architectural inability of LLMs to distinguish between a statistically likely token sequence and an epistemic truth, resulting in "hallucinations" that pollute the knowledge base.
 To resolve this, this research proposes a foundational experimental study designed to validate a novel "Validate-then-Generate" architecture. By inserting a structural auditing layer—specifically the Composition-based Multi-Relational Graph Convolutional Network (CompGCN)—the system shifts the role of artificial intelligence from an unaccountable author to a deterministic "digital detective." This framework addresses the "Corrupted Source Fallacy," wherein standard Retrieval-Augmented Generation (RAG) systems blindly retrieve and amplify existing errors in source material.
 1.2 Statement of the Problem
 The core problem this study addresses is the architectural inability of current knowledge synthesis systems to validate semantic integrity before generation. While tools exist for search (Google) and generation (ChatGPT), there is no integrated framework that mathematically validates the structural consistency of a professional knowledge base. Specifically, this study addresses four critical gaps identified in the intersection of Data Science and Professional Ethics:
-1.2.1 The Manual Efficiency ("The Data Review Backlog")
+1.2.1 The Manual Efficiency Gap ("The Data Review Backlog")
 The volume of professional literature has radically outpaced human cognitive capacity, creating a "Data Review Backlog" that stifles progress. Historical benchmarks established by Borah et al. (2017) indicate that a single systematic review requires a mean duration of 67.3 weeks to complete. This latency creates a temporal disconnect where scientific consensus lags years behind primary research. Critically, recent experimental data by Guo et al. (2025) suggests that this is not merely a speed issue but a capability ceiling; in structured extraction tasks, AI agents achieved 93.1% accuracy compared to a plateau of 79.7% for human reviewers.
 1.2.2 The Manual Integrity ("The Unreliable Ground Truth")
 Professionals lack a mechanism to validate the internal consistency of their source data, leading to an "Unreliable Ground Truth." Research by Gøtzsche et al. (2007) initially revealed that 63% of manual meta-analyses contained data extraction errors. Recent high-impact studies by Xu et al. (2022) confirm that this trend has accelerated, with error rates surging to 85.1% in systematic reviews. Furthermore, the prevalence of linear tools—where 65% of professionals rely on spreadsheets to manage graph-based data—exacerbates these errors by forcing high-dimensional data into low-dimensional formats.
@@ -41,11 +46,11 @@ This is a critical technical failure of existing Retrieval-Augmented Generation 
 While Graph Neural Networks (GNNs) are successfully used to detect financial fraud rings by identifying circular transaction loops (Liu et al., 2024), there is a significant lack of applied research utilizing GNNs to detect "semantic fraud." In professional literature, errors often manifest as structural anomalies such as circular reasoning, phantom citations (Athaluri et al., 2023), or conflicting witness narratives. The capability to mathematically identify a "citation ring" or a logical contradiction based on graph topology remains an underdeveloped frontier in Natural Language Processing.
 1.3 Research Hypotheses
 To address these gaps, this study posits the following hypotheses to be tested via experimental validation:
-H1 (The Topological Correlation Hypothesis): 
+H1 (The Topological Correlation Hypothesis):
 Semantic inconsistencies (e.g., contradictions, hallucinations, or extraction errors) in a knowledge graph manifest as detectable structural anomalies within the graph topology (e.g., broken transitivity, low-plausibility edge compositions).
-H2 (The GNN Auditing Hypothesis): 
+H2 (The GNN Auditing Hypothesis):
 A Composition-based Multi-Relational Graph Convolutional Network (CompGCN) can learn the "algebra of truth" (composition rules) of a professional domain sufficiently to assign low plausibility scores to anomalous edges, achieving an AUC-ROC > 0.95 and MRR > 0.95 in link prediction tasks.
-H3 (The Grounding Hypothesis): 
+H3 (The Grounding Hypothesis):
 Restricting a Generative AI model to synthesize answers only from a GNN-validated subgraph (where anomalous edges are filtered) will result in a Grounding Score > 98%, effectively eliminating "phantom citations" and hallucinations from the output.
 1.4 Specific Objectives
 The primary objective of this research is to develop and validate a "Trustworthy Synthesis Platform" that prioritizes integrity over fluency. The specific operational objectives are:
@@ -54,29 +59,29 @@ The primary objective of this research is to develop and validate a "Trustworthy
 3. Grounded Generation (Addressing the Corrupted Source Fallacy): To implement a Grounded Generation engine that filters retrieved triplets by GNN plausibility scores (  ) and synthesizes answers exclusively from validated subgraphs. The hybrid GraphRetriever combines vector similarity for seed selection with graph expansion for context. When no validated triplets exist, the system returns a hard "Grounding Error" rather than hallucinating.
 1.5 Significance of the Study
 The successful development of this framework offers transformative value across several high-stakes domains, shifting the paradigm from "Generative AI" to "Auditable AI."
-This study contributes to a validated blueprint for "Trustworthy AI." It demonstrates that Graph Neural Networks can function as a "Superego" to the Large Language Model's "Id," forcing the probabilistic, creative nature of the LLM to adhere to the deterministic, verified structure of the Knowledge Graph. This supports the transition of AI from a creative assistant to a reliable professional agent—catching patterns that would be missed by fatigued human analysts.
+This study contributes to a validated blueprint for "Trustworthy AI." It demonstrates that Graph Neural Networks can function as a deterministic integrity constraint on the Large Language Model's probabilistic output, ensuring that the LLM's generation adheres to the verified structure of the Knowledge Graph. This supports the transition of AI from a creative assistant to a reliable professional agent—catching patterns that would be missed by fatigued human analysts.
 1.6 Scope and Delimitations
-Scope: The technical scope includes the implementation of PyTorch Geometric (CompGCN) for validation, a FastAPI backend with local hybrid retrieval and generator-side integrity filtering for grounded synthesis, and an optional Neo4j Aura Agent for cloud deployment.
+Scope: The technical scope includes the implementation of PyTorch Geometric (CompGCN) for validation, a FastAPI backend with local hybrid retrieval and generator-side integrity filtering for grounded synthesis.
 
 
 Delimitations:
-   * Source Material: The system processes text-based PDFs. Images, complex LaTeX formulas, and tables are excluded from the current extraction pipeline to focus on semantic text relationships.
-   * Language: The NLP extraction modules are optimized for English-language documents; multilingual support is outside the scope of this experimental validation.
-   * Epistemic Limits: The system validates Internal Consistency (Plausibility), not Objective Universal Truth. It detects if a document contradicts other documents within the provided dataset or violates the structural logic of the graph. It does not cross-reference claims against the entire internet in real-time.
-   * Deployment: The prototype is designed for server-side deployment to handle the computational load of the graph database (Neo4j) and GNN inference (PyTorch Geometric); it is not designed for local mobile deployment.
+   1. Source Material: The system processes text-based PDFs. Images, complex LaTeX formulas, and tables are excluded from the current extraction pipeline to focus on semantic text relationships.
+   2. Language: The NLP extraction modules are optimized for English-language documents; multilingual support is outside the scope of this experimental validation.
+   3. Epistemic Limits: The system validates Internal Consistency (Plausibility), not Objective Universal Truth. It detects if a document contradicts other documents within the provided dataset or violates the structural logic of the graph. It does not cross-reference claims against the entire internet in real-time.
+   4. Deployment: The prototype is designed for server-side deployment to handle the computational load of the graph database (Neo4j) and GNN inference (PyTorch Geometric); it is not designed for local mobile deployment.
 1.7 Conceptual Framework
 Figure 1.1 presents the conceptual framework that connects the problem statement to the proposed solution. The framework illustrates how the Dual Deficit (Manual Integrity Deficit and AI Trust Deficit) feeds into the Corrupted Source Fallacy of standard RAG, and how the Validate-then-Generate architecture intervenes by inserting a GNN-based integrity layer before synthesis.
 
 
-  
+
 
 Chapter 2: Literature Review and Technical Justification
-2.1 The Manual Integrity Deficit: A Statistical Autopsy of Human Failure
+2.1 The Manual Integrity Deficit: A Statistical Analysis of Manual Review Failure
 The transition toward automated synthesis is often framed largely as a matter of efficiency, a way to process more data in less time. However, a deep review of the literature reveals a more fundamental crisis of integrity. Manual human review, long considered the "gold standard" for evidentiary synthesis, is undergoing a systemic collapse under the weight of data volume.
 2.1.1 The Baseline of Failure (2007-2022)
 Historical data from the early 21st century provided the first indications of this collapse. A seminal review conducted by Gøtzsche et al. (2007) analyzed 27 meta-analyses and revealed that 63% contained significant data extraction errors. Critically, 70% of these errors were severe enough to negate or reverse the findings of the study.
-Recent high-impact studies confirm that this trend has accelerated. Research by Xu et al. (2022), analyzing 201 systematic reviews, found that the error rate has surged to 85.1%, with errors present in 66.8% of all analyzed meta-analyses. The implications of these findings are catastrophic for evidence-based practice; reliance on manual review is no longer a guarantee of accuracy but a statistical probability of error. 
-  
+Recent high-impact studies confirm that this trend has accelerated. Research by Xu et al. (2022), analyzing 201 systematic reviews, found that the error rate has surged to 85.1%, with errors present in 66.8% of all analyzed meta-analyses. The implications of these findings are catastrophic for evidence-based practice; reliance on manual review is no longer a guarantee of accuracy but a statistical probability of error.
+
 
 2.1.2 The "Human Bottleneck" and AI Superiority (2025)
 The disparity between human capacity and data velocity defines the "Human Bottleneck." Borah et al. (2017) established that the mean time for a human team to complete a systematic review is 67.3 weeks. In contrast, recent benchmarks by Guo et al. (2025) comparing human vs. AI agent performance indicate that manual human extraction accuracy has plateaued at approximately 79.7%. In the same study, state-of-the-art AI agents achieved 93.1% accuracy in structured extraction tasks.
@@ -93,29 +98,17 @@ The current industry standard for mitigating hallucination is Retrieval-Augmente
    * Premise: Standard RAG assumes that if a document is retrieved from a database, it is inherently true.
    * Reality: As proven by Xu et al. (2022), 85.1% of source documents (systematic reviews) contain data extraction errors.
    * Result: Standard RAG blindly retrieves and amplifies these errors, creating a feedback loop of misinformation. It lacks an "Integrity Layer" to mathematically audit the plausibility of the retrieved information before generation.
-  
-  
-________________
 
+Table 2.1: Standard RAG vs. Validate-then-Generate Comparison
 
+Dimension                | Standard RAG                          | Validate-then-Generate
+-------------------------|---------------------------------------|------------------------------------------
+Retrieval Unit           | Text chunks                           | Graph triplets (source, relation, target)
+Integrity Check          | None                                  | CompGCN plausibility score (  )
+Failure Mode             | Hallucination                         | Hard Grounding Error
+Provenance               | Document-level or none                | Per-triplet source validation
 
-
-Dimension
-	Standard RAG
-	Validate-then-Generate
-	Retrieval Unit
-	Text chunks
-	Graph triplets (source, relation, target)
-	Integrity Check
-	None
-	CompGCN plausibility score (  )
-	Failure Mode
-	Hallucination
-	Hard Grounding Error
-	Provenance
-	Document-level or none
-	Per-triplet source validation
-	2.4 The Tangent Argument: GNNs as Structural Detectives
+2.4 The Tangent Argument: GNNs as Structural Detectives
 To solve the integrity deficit, this research draws a "Tangent Argument" from the domain of financial fraud detection, applying its principles to semantic analysis.
 2.4.1 Analogy of Financial Fraud Rings
 In financial networks, fraud is often defined not by the content of a single transaction, but by the suspicious topology of connections. Liu et al. (2024) demonstrate that Graph Neural Networks (GNNs) are uniquely effective at detecting "coordinated ring fraud," characterized by circular transactions used to hide the movement of assets. This research posits a structural parallel: a semantic contradiction or citation error often manifests as a "semantic fraud ring." For example, a circular citation chain where Paper A cites Paper B, and Paper B cites Paper A, with no external grounding, creates a self-reinforcing loop of unverified truth. By treating knowledge graphs as transaction networks, the GNN can identify these structural loops as anomalies.
@@ -124,11 +117,11 @@ Phan et al. (2023) found that GNN-based approaches outperform traditional models
 2.5 Technical Justification: CompGCN vs. R-GCN
 The selection of the Composition-based Multi-Relational Graph Convolutional Network (CompGCN) is driven by the specific requirements of professional knowledge graphs.
 2.5.1 Limitations of R-GCN
-Traditional Relational Graph Convolutional Networks (R-GCN) struggle when handling complex professional data because they treat every type of relationship as a completely separate task. Imagine a student trying to learn a distinct set of grammar rules for every single verb in a language; eventually, there are too many rules to memorize, and the student becomes overwhelmed. Similarly, as the number of unique relationships in a dataset grows (e.g., "cites," "disputes," "extends," "overturns"), R-GCNs become inefficient and require too much computational power to function effectively (Vashishth et al., 2020).
+R-GCN assigns a dedicated weight matrix W_r to each relation type r, resulting in O(R) parameter growth where R is the number of distinct relation types. For professional knowledge graphs with numerous relation types, this leads to parameter proliferation and increased risk of overfitting on smaller datasets (Vashishth et al., 2020).
 2.5.2 The Superiority of CompGCN
-CompGCN solves this problem by treating relationships as meaningful concepts rather than just labels. Instead of learning separate rules for everything, CompGCN learns how to combine the "starting point" (e.g., Paper A) with the "relationship" (e.g., contradicts) to predict the "destination" (e.g., Paper B). This allows the model to understand the "algebra of truth."
+CompGCN solves this problem by treating relationships as meaningful concepts rather than just labels. CompGCN learns a composition function that combines entity embeddings with relation embeddings, enabling the model to capture the semantic interaction between entities and their connecting relationships. This allows the model to understand the "algebra of truth."
 The standard layer propagation rule is:
-  
+
 Where:
    *    is the updated embedding for node   .
    *    represents the set of neighbors of node   .
@@ -139,25 +132,144 @@ Where:
 
 
 Why DistMult? This study utilizes the DistMult composition operator, defined as the element-wise multiplication of the entity and relation vectors:
-  
+
 This operator allows the model to learn the semantic weight of the edge itself. If the model learns that "Author A" is highly trusted, and the relation "contradicts," the resulting composition will project into a vector space representing "untrustworthy."
 2.6 Hybrid Retrieval and Global Sensemaking
 For the generation phase, the system implements a custom hybrid retrieval pipeline. Unlike vector RAG, which retrieves text chunks based on semantic similarity alone, the pipeline combines (1) vector similarity for seed selection, (2) graph expansion for multi-hop context, and (3) optional Leiden-based community detection for discovery leads.
 The Leiden algorithm is crucial because it guarantees well-connected communities, addressing a flaw in the older Louvain algorithm. It optimizes modularity (  ), a metric that measures the density of links inside communities compared to links between communities. The modularity equation, incorporating a resolution parameter   , is defined as:
-  
+
 Where    is the actual number of edges in community   ,    is the total number of edges,    is the sum of degrees, and    is the resolution parameter. This hierarchical clustering allows the system to perform "Global Sensemaking." The study runs community detection only on the GNN-validated subgraph, ensuring that discovery leads are free from "phantom" data.
-2.7 Generator-Side Integrity Filtering and Optional Aura Agent
+2.7 Generator-Side Integrity Filtering
 Standard RAG architectures mitigate hallucination by retrieving text chunks based on semantic similarity. However, this "local search" approach is fundamentally ill-equipped for complex professional synthesis. It retrieves isolated fragments of text but fails to capture the latent structural relationships—the "multi-hop" context—between those fragments.
 "The Remembrance" implements a hybrid retrieval pipeline. The DiscoveryGenerator filters retrieved triplets by audit_status or plausibility_score    (default   ). Only validated triplets are passed to the synthesis layer. If no validated triplets exist, the system returns a hard "Grounding Error," refusing to hallucinate. Rather than enforcing this at the Cypher level, generator-side filtering allows the local retriever to fetch full context while ensuring the LLM receives only GNN-validated triplets, effectively constraining the probabilistic nature of the LLM by the deterministic structure of the Knowledge Graph.
 ________________
 Chapter 3: Methodology
 3.1 Research Design
 This study employs a Developmental Research Design within an Experimental Framework. It focuses on the systematic translation of theoretical constructs, specifically Graph Neural Networks (GNNs) and Graph Retrieval-Augmented Generation (GraphRAG) into a functional prototype. The research follows an Agile-Iterative lifecycle. Given the complexity of tuning GNN hyperparameters (such as the Plausibility Threshold and the Leiden resolution parameter) and integrating multiple AI models, a linear Waterfall model is unsuitable. The study is a "Technical Validation" experiment; success is defined by technical Key Performance Indicators (KPIs) rather than user acquisition or commercial viability.
-3.2 System Architecture: The "Validate-then-Generate" Pipeline
-The workflow is governed by a strict unidirectional pipeline designed to prevent the "Corrupted Source Fallacy".
-      * Phase I: Ingestion and Graph Construction (The Builder): The ingestion module processes unstructured professional literature using the neo4j-graphrag SimpleKGPipeline. To handle the GNN "Cold Start Problem," DistilBERT generates 768-dimensional L2-normalized semantic vectors from node text, establishing initial features.
-      * Phase II: Semantic Integrity Validation (The Audit): The GNN projects nodes and relations into vector space using the DistMult operator. The model assigns a scalar Plausibility Score from 0.0 to 1.0 to every edge. Training uses Adam, ReduceLROnPlateau, and early stopping.
-      * Phase III: Grounded Generation (The Synthesis): The validated graph is queried. The DiscoveryGenerator filters triplets by plausibility scores. The "Detective Board" UI component exposes the evidence trail—validated triplets with source_docs and target_docs—enabling Auditable AI.
+3.2 System Architecture: The Three-Pipeline Design
+
+Following established ML systems architecture conventions (Labarta Bajo, 2023), the system is decomposed into three modular pipelines: Feature Pipelines (data preparation), Training Pipeline (model development), and Inference Pipeline (query-time execution). This separation ensures that each pipeline can be developed, tested, and evaluated independently, and aligns with production MLOps practices where feature computation, model training, and serving are distinct operational concerns.
+
+[Figure 3.1: Three-Pipeline Architecture — Feature / Training / Inference. See visualization description below.]
+
+3.2.1 Feature Pipelines (Stages 1–4)
+
+The Feature Pipelines transform raw PDF documents into a queryable, embedding-enriched knowledge graph. This pipeline runs once per corpus update and produces the persistent data artifacts consumed by both the Training and Inference pipelines.
+
+Stage 1: PDF Ingestion
+
+Component: SimpleKGPipeline (neo4j-graphrag library)
+Input: Raw PDF files from the document corpus
+Output: Parsed text segments passed to the extraction stage
+Key Parameters: from_pdf=True, on_error=RAISE (configurable)
+Schema: 8 node types (Entity, Method, Researcher, Dataset, Concept, Result, Metric, __Entity__), 7 relationship types (USES, CONTRADICTS, EXTENDS, PROPOSES, EVALUATES, ACHIEVES, FROM_CHUNK)
+
+The ingestion stage uses the SimpleKGPipeline from the neo4j-graphrag library, which orchestrates PDF text extraction and passes the content to the LLM-based extraction stage. The pipeline is schema-guided: entity and relationship types are predefined to constrain extraction to domain-relevant concepts, preventing the LLM from generating arbitrary or hallucinated entity categories.
+
+Justification: Schema-guided extraction was selected over open-ended extraction because it captures typed relations (e.g., Researcher PROPOSES Method) that standard text chunking misses. Typed relations are essential for the CompGCN audit stage, which requires multi-relational edge types to learn compositional patterns.
+
+Stage 2: Entity and Relationship Extraction
+
+Model: Gemini 2.5 Flash (Google)
+Input: Parsed text segments from Stage 1
+Output: Typed entities and relationships written to Neo4j
+Key Parameters: Temperature: 0, Retry: exponential backoff (5 retries, 5-second base delay)
+Entity Types: Entity, Method, Researcher, Dataset, Concept, Result, Metric
+Relation Types: USES, CONTRADICTS, EXTENDS, PROPOSES, EVALUATES, ACHIEVES
+
+The LLM performs zero-shot extraction: given a text segment and the target schema, it identifies entities and their relationships without task-specific fine-tuning. Temperature is set to 0 to maximize determinism—the same input produces the same extraction output, ensuring reproducibility across evaluation runs.
+
+Justification: Gemini 2.5 Flash was selected for its balance of extraction quality and cost efficiency. Temperature 0 ensures deterministic output, which is critical for a system that claims reproducible integrity validation. The exponential backoff retry logic handles API rate limiting during large corpus ingestion.
+
+Stage 3: Graph Storage and Provenance
+
+Database: Neo4j (Aura Free tier)
+Protocol: Bolt (neo4j+s://)
+Provenance: Per-node source_document and per-edge source_documents properties
+Metadata: IngestionRun nodes with timestamps, document counts, and processing status
+
+Every extracted entity and relationship is annotated with its source document filename, creating a complete provenance chain from generated narrative to triplet to source PDF. IngestionRun metadata nodes record when each ingestion occurred, how many documents were processed, and how many nodes and relationships were created, enabling reproducibility auditing.
+
+Justification: Neo4j was selected over relational databases because professional knowledge is inherently graph-structured: entities are connected by typed, directional relationships that SQL JOIN operations cannot efficiently traverse. The Aura Free tier provides cloud persistence without cost, making the system accessible for academic research.
+
+Stage 4: Vector Embedding (Cold-Start Resolution)
+
+Model: DistilBERT (distilbert-base-nli-stsb-mean-tokens)
+Input: Node text fields (description, summary, name) from Neo4j
+Output: 768-dimensional L2-normalized embedding vector on each node
+Key Parameters: Batch size: 50, Normalization: L2, Provider: sentence-transformers
+
+This stage solves the GNN Cold-Start Problem: the CompGCN model requires initial node feature vectors, but newly extracted entities have no embeddings. DistilBERT generates 768-dimensional semantic vectors from node text, which serve as initial features for the GNN. L2 normalization ensures all vectors have unit norm, preventing magnitude bias during training. Nodes without text receive zero vectors, which remain zero after normalization—the GNN treats these as uninformative but still scores their edges.
+
+Justification: DistilBERT was selected over larger embedding models (e.g., OpenAI ada-002 at 1536 dimensions, or Gemini embeddings) for three reasons: (1) it runs locally without API costs, keeping the system free-tier; (2) its 768-dimensional output provides sufficient semantic resolution for similarity-based seed selection; (3) its lightweight architecture (approximately 66 million parameters compared to BERT's 110 million) enables batch embedding of large graphs without GPU requirements.
+
+3.2.2 Training Pipeline (Stage 5)
+
+The Training Pipeline takes the embedding-enriched graph from the Feature Pipelines and trains a link prediction model to score every relationship's plausibility. This pipeline runs once after each ingestion cycle and produces the integrity scores consumed by the Inference Pipeline.
+
+Stage 5: CompGCN Integrity Audit
+
+Model: CompGCNAuditModel (custom implementation, 2-layer encoder with DistMult link predictor)
+Input: All non-FROM_CHUNK edges and 768-dimensional node embeddings from Neo4j
+Output: Plausibility score (0.0 to 1.0) written to every relationship in the graph
+Architecture: 2-layer CompGCN encoder, DistMult composition, sigmoid scoring head
+Training Data: 80% of edges (train), 20% held out (validation)
+Negative Sampling: 10 corrupted triples per positive edge (head/tail corruption)
+Loss Function: BCEWithLogitsLoss with configurable label smoothing
+
+Table 3.1: CompGCN Hyperparameters
+
+Parameter | Value | Justification
+Hidden Channels | 256 | Balances expressiveness with training stability for graphs of this scale
+Epochs | 100 (maximum) | Upper bound; early stopping typically terminates at 30-60 epochs
+Learning Rate | 0.001 | Standard Adam optimizer starting rate
+Weight Decay | 0.0001 | L2 regularization to prevent overfitting on small graphs
+Dropout | 0.2 | Applied after each CompGCN layer to prevent co-adaptation
+Early Stopping Patience | 20 epochs | Stops training if validation AUC does not improve for 20 consecutive epochs
+Gradient Clipping | 1.0 | Prevents exploding gradients during backpropagation
+Negative Ratio | 10 | 10 corrupted triples per positive edge for robust negative sampling
+Validation Split | 20% | Standard held-out proportion for link prediction evaluation
+Label Smoothing | 0.0 | Disabled by default; configurable for noisy graphs
+Composition Operator | DistMult (element-wise multiplication) | Shared parameterization avoids R-GCN's O(R) scaling
+Random Seed | 42 | Fixed for reproducible audit results across evaluation runs
+
+The training process proceeds as follows: (1) Load all non-FROM_CHUNK edges and node embeddings from Neo4j via the GNNLoader module. (2) Split edges into 80% training and 20% validation sets via random permutation. (3) For each epoch: encode nodes via the 2-layer CompGCN, compute positive edge logits, sample negative edges via head and tail corruption, compute BCE loss, and backpropagate with gradient clipping. (4) Evaluate validation AUC-ROC after each epoch; update the learning rate via ReduceLROnPlateau scheduler. (5) Apply early stopping if no improvement occurs for 20 epochs; restore the best model state. (6) Score all edges with the best model; write plausibility_score to every relationship in Neo4j. (7) Persist an AuditRun metadata node recording AUC-ROC, MRR, hyperparameters, and timestamps.
+
+[Figure 3.2: CompGCN Training Loop — showing the epoch cycle, early stopping decision, and score synchronization to Neo4j.]
+
+3.2.3 Inference Pipeline (Stages 6–7)
+
+The Inference Pipeline runs at query time. It retrieves context from the validated graph, filters by plausibility, synthesizes a narrative, and evaluates the output quality.
+
+Stage 6: Grounded Synthesis
+
+Retriever: GraphRetriever (custom hybrid: vector similarity combined with graph expansion)
+Generator: Gemini 2.5 Flash
+Plausibility Threshold (tau): 0.95 (configurable via GROUNDING_MIN_SCORE)
+Seed Selection: Top-5 nodes by cosine similarity to query embedding
+Graph Expansion: 1-hop traversal from seed nodes, excluding FROM_CHUNK edges
+Failure Mode: Hard Grounding Error—returns error instead of hallucinating
+
+The retrieval process operates as follows: (1) Encode the user query with DistilBERT, using the same model as Stage 4 for embedding consistency. (2) Fetch candidate nodes with embeddings from Neo4j; compute cosine similarity in Python. (3) Select the top-5 seed nodes by similarity score. (4) Expand 1-hop from seeds: retrieve all connected triplets (source, relation, target) with provenance metadata. (5) Filter: retain only triplets where audit_status equals "trained_experimental" or plausibility_score is greater than or equal to tau. (6) If no triplets survive filtering, return a hard Grounding Error—the system refuses to generate an answer rather than hallucinating from unvalidated data. (7) Pass validated triplets and the query to Gemini for narrative synthesis.
+
+Generator-Side Filtering (Design Decision): The plausibility filtering is performed at the generator level in Python, not at the Cypher query level in the database. This is intentional: the retriever fetches full context including low-scoring triplets, allowing the system to log what was retrieved versus what was filtered. This separation enables audit logging of retrieval coverage versus generation input, future ablation studies comparing filtered versus unfiltered generation, and the Audit Dashboard to display flagged relationships without requiring a separate query.
+
+Justification: The hybrid vector plus graph retrieval strategy was selected over pure vector RAG because vector similarity alone retrieves isolated text fragments. Graph expansion discovers multi-hop connections (e.g., Researcher A PROPOSES Method B EVALUATES Dataset C) that pure semantic search cannot reach. The 1-hop limit balances context richness with noise—deeper traversals on small graphs risk including the entire graph.
+
+[Figure 3.3: Inference Decision Flow — showing the retrieval, filtering, grounding error path, and synthesis.]
+
+Stage 7: Evaluation (LLM-as-Judge)
+
+Method: LLM-as-Judge (automated evaluation)
+Scorer Model: Gemini 2.5 Flash
+Grounding Metric: Average claim traceability score (1-5 per claim, normalized to 0-1)
+Faithfulness Metric: Ratio of claims supported by retrieved triplets
+Evaluation Queries: 5 fixed queries from evaluation_queries.json
+
+The evaluation stage uses a structured prompt to instruct Gemini to act as an impartial evaluator, scoring each factual claim in the generated narrative against the retrieved triplets. This LLM-as-Judge approach provides scalable evaluation without requiring human annotators.
+
+Justification: Human evaluation is the gold standard but impractical for iterative development on a capstone timeline. LLM-as-Judge provides consistent, reproducible scores across runs. The fixed query set ensures evaluation stability—the same five queries are used for every evaluation cycle, enabling direct comparison across pipeline configurations.
+
 3.3 Evaluation Framework and Metrics
 To prove the efficacy of the framework and test the hypotheses (H1, H2, H3), a multi-dimensional evaluation strategy is employed:
 3.3.1 GNN Performance: Link Prediction (Testing H1 & H2)
@@ -169,23 +281,23 @@ For the generative output, the research utilizes a custom "LLM-as-a-judge" appro
       * KPI: Faithfulness Score. The ratio of statements in the output that are fully supported by the retrieved context.
 3.4 Deployment Strategy and Practical Implications
 While the primary focus is experimental research, the study acknowledges the deployment requirements for such a high-compute architecture.
-      * Cloud-Native Server-Side Mandate: Due to the computational overhead of managing massive, multi-relational graphs and running GNN inference, the system utilizes a Neo4j Aura Professional cloud deployment.
+      * Cloud-Native Server-Side Mandate: Due to the computational overhead of managing massive, multi-relational graphs and running GNN inference, the system utilizes a Neo4j Aura Free cloud deployment.
       * Sustainability (The "Trust Layer"): The long-term viability lies in modularizing the GNN Integrity Validator as a standalone API, a "Trust Layer". This allows the technology to be licensed to existing platforms (e.g., Legal Tech firms) as a background "sanity check" service.
 3.5 Technology Stack
-      * Graph Database: Neo4j Aura Professional (selected for always-on cloud persistence and vector-optimized configuration).
+      * Graph Database: Neo4j Aura Free tier (selected for always-on cloud persistence and vector-optimized configuration).
       * GNN Framework: PyTorch Geometric (PyG) (selected for optimized sparse tensor operations required to implement the custom CompGCN layer).
       * NLP/Embedding: DistilBERT (selected for its lightweight architecture to generate 768-dimensional vectors, solving the Cold Start problem).
-      * Generation Engine: Local DiscoveryGenerator with optional Neo4j Aura Agent.
+      * Generation Engine: Local DiscoveryGenerator.
       * Visualization: Detective Board & Provenance rendered via a Next.js frontend.
 Chapter 4: The System
 4.1 System Overview
-"The Remembrance" is a cloud-native, graph-based synthesis platform designed to enforce strict semantic integrity in high-stakes professional workflows. Operating under an uncompromising "Architectural Trust Mandate," the system deprecates the traditional, hallucination-prone Retrieval-Augmented Generation (RAG) pipeline in favor of a novel "Validate-then-Generate" architecture. It functions as a deterministic "digital detective," shifting artificial intelligence from an "unaccountable author" to an "auditable tool."
+"The Remembrance" is a server-side, graph-based synthesis platform designed to enforce strict semantic integrity in high-stakes professional workflows. Operating under an uncompromising "Architectural Trust Mandate," the system deprecates the traditional, hallucination-prone Retrieval-Augmented Generation (RAG) pipeline in favor of a novel "Validate-then-Generate" architecture. It functions as a deterministic "digital detective," shifting artificial intelligence from an "unaccountable author" to an "auditable tool."
 4.2 System Core Functions
-      1. Knowledge Ingestion & Feature Initialization: 
+      1. Knowledge Ingestion & Feature Initialization:
 Parses unstructured PDFs using the SimpleKGPipeline to extract ontological nodes. DistilBERT generates 768-dimensional L2-normalized vectors from node text.
-      2. Topological Auditing (The Semantic Fraud Detector): 
+      2. Topological Auditing (The Semantic Fraud Detector):
 The PyG backend extracts the graph topology and processes it through the CompGCN module, calculating a Plausibility Score (0.0–1.0) for every edge.
-      3. Constrained Grounded Generation: 
+      3. Constrained Grounded Generation:
 The hybrid retriever fetches context triplets. The DiscoveryGenerator filters triplets by plausibility_score    (default 0.95). Only validated triplets are passed to Gemini for synthesis.
       4. Provenance Tracking and Error Interception:
  The Detective Board exposes source docs, target docs, and per-triplet explanations. If no validated triplets exist, the API returns a hard "Grounding Error."
@@ -197,14 +309,14 @@ The hybrid retriever fetches context triplets. The DiscoveryGenerator filters tr
       * UC5: Verify Source Truth (Audit Trail): The Detective Board renders the evidence trail. The User verifies the exact triples and provenance supporting each claim.
 4.4 System Architecture (Three-Tier Design)
 To handle the intense computational overhead, the system is strictly decoupled into three server-side tiers:
-      1. Data Persistence Layer (Neo4j Aura Professional): Acts as the immutable "source of truth", optimized with vector search to store 768-dimensional DistilBERT embedding arrays.
+      1. Data Persistence Layer (Neo4j Aura Free): Acts as the immutable "source of truth", optimized with vector search to store 768-dimensional DistilBERT embedding arrays.
       2. Intelligence & Validation Layer (FastAPI & PyTorch Geometric): The mathematical core that orchestrates heavy tensor operations, executes CompGCN loss functions, and manages hybrid retrieval.
       3. Application Layer (Next.js): The frontend communicating via HTTP with the FastAPI server, orchestrating the Detective Board, Knowledge Graph visualizations, and user queries.
 4.5 Technology Stack Justification
-      * Neo4j Aura Professional: Selected over standard SQL or NoSQL for its native property graph architecture and Cypher querying language.
+      * Neo4j Aura Free tier: Selected over standard SQL or NoSQL for its native property graph architecture and Cypher querying language.
       * PyTorch Geometric (PyG): Selected as the industry standard for Graph Neural Networks, avoiding memory overflow during complex tensor operations.
       * DistilBERT: Selected over larger LLM embeddings because its lightweight 768-dimensional architecture provides the perfect balance of semantic understanding and computational efficiency.
-      * Local DiscoveryGenerator: Selected to strictly enforce generator-side filtering to satisfy the Trust Mandate, with an optional Aura Agent for cloud-based scaling.
+      * Local DiscoveryGenerator: Selected to strictly enforce generator-side filtering to satisfy the Trust Mandate.
 4.6 Activity Diagram Description (The Validation Flow)
 The activity flow models the rigorous interception logic of the Trust Mandate:
       1. Initialization: The User submits a synthesis query via POST /chat.
@@ -217,13 +329,13 @@ The activity flow models the rigorous interception logic of the Trust Mandate:
 The sequence of operations enforces the core security mechanism: preventing LLM hallucinations at the generation stage.
 
 
-  
+
 
 4.8 Entity-Relationship Model
 To ensure complete provenance, the Neo4j schema meticulously tracks ingestion operations and structural relationships.
 
 
-  
+
 
 
 
@@ -235,12 +347,11 @@ Frohock, C. (2025). Ghosts at the gate: A call for vigilance against AI-generate
 Gøtzsche, P. C., Hróbjartsson, A., Marić, K., & Tendal, B. (2007). Data extraction errors in meta-analyses that use standardized mean differences. JAMA, 298(4), 430–437. https://doi.org/10.1001/jama.298.4.430
 Guo, Z., et al. (2025). How do AI agents do human work? Comparing AI and human workflows across diverse occupations. arXiv. https://arxiv.org/abs/2510.22780
 He, J., et al. (2025). Data extraction error in pharmaceutical versus non-pharmaceutical interventions for evidence synthesis: Study protocol for a crossover trial. Contemporary Clinical Trials Communications, 35(10092), 101189. https://doi.org/10.1016/j.conctc.2023.101189
-He, J., et al. (2025). Validity of data extraction in evidence synthesis practice of adverse events: Reproducibility study. Annals of Internal Medicine.(((https://doi.org/10.7326/ANNALS-25-00739)))
+He, J., et al. (2025). Validity of data extraction in evidence synthesis practice of adverse events: Reproducibility study. Annals of Internal Medicine. https://doi.org/10.7326/ANNALS-25-00739
 Liu, Z., et al. (2024). Financial fraud detection using graph neural networks: A systematic review. Expert Systems with Applications. https://doi.org/10.1016/j.eswa.2023.120456
 Nature. (2023). Generative AI images are breaking the rules for research [Editorial]. Nature, 618, 215. https://doi.org/10.1038/d41586-023-01831-2
 Phan, H. T., Nguyen, N. T., & Hwang, D. (2023). Fake news detection: A survey of graph neural network methods. Applied Soft Computing, 139, 110235. https://doi.org/10.1016/j.asoc.2023.110235
 Vashishth, S., Sanyal, S., Nitin, V., & Talukdar, P. (2020). Composition-based multi-relational graph convolutional networks. International Conference on Learning Representations (ICLR). https://arxiv.org/abs/1911.03082
 Xu, C., et al. (2022). Validity of data extraction in evidence synthesis practice of adverse events: Reproducibility study. BMJ, 377, e069155. https://doi.org/10.1136/bmj-2021-069155
-Zhang, J., Ying, R., & Shao, J. (2024/2025). Online detection of anomalies in temporal knowledge graphs with interpretability (AnoT). arXiv. https://arxiv.org/abs/2408.00872 Barry, M., Caillaut, G., Halftermeyer, P., Qader, R., Mouayad, 
-M., Le Deit, F., & Cariolaro, D. (2025). GraphRAG: Leveraging graph-based efficiency to minimize hallucinations in LLM-driven RAG for finance data. ACL Anthology. https://aclanthology.org/2025.genaik-1.6/
-Zhang, J., Ying, R., & Shao, J. (2024). Online detection of anomalies in temporal knowledge graphs with interpretability (AnoT). arXiv. https://arxiv.org/abs/2408.00872
+Zhang, J., Ying, R., & Shao, J. (2024/2025). Online detection of anomalies in temporal knowledge graphs with interpretability (AnoT). arXiv. https://arxiv.org/abs/2408.00872
+Barry, M., Caillaut, G., Halftermeyer, P., Qader, R., Mouayad, M., Le Deit, F., & Cariolaro, D. (2025). GraphRAG: Leveraging graph-based efficiency to minimize hallucinations in LLM-driven RAG for finance data. ACL Anthology. https://aclanthology.org/2025.genaik-1.6/

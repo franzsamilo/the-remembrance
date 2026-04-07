@@ -1,7 +1,38 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cd /c/Users/Franz Samilo/Desktop/the-remembrance/backend)"
+      "Bash(cd /c/Users/Franz Samilo/Desktop/the-remembrance/backend)",
+      "Bash(npx next:*)",
+      "Bash(python -c \"import py_compile; import glob; errors=[]; [errors.append\\(f\\) for f in glob.glob\\(''backend/src/**/*.py'', recursive=True\\) if not \\(lambda f: \\(py_compile.compile\\(f, doraise=True\\), True\\)[1] if True else False\\)\\(f\\)]; print\\(''All Python files compile OK'' if not errors else errors\\)\")",
+      "Bash(python -m py_compile backend/src/gnn_module.py)",
+      "Bash(python -m py_compile backend/src/ingestion.py)",
+      "Bash(python -m py_compile backend/src/embed_nodes.py)",
+      "Bash(python -m py_compile backend/src/gnn_loader.py)",
+      "Bash(python -m py_compile backend/src/chunk_retriever.py)",
+      "Bash(python -m py_compile backend/src/api/main.py)",
+      "Bash(bash:*)",
+      "Bash(cat \"C:/Users/Franz Samilo/Desktop/the-remembrance/.superpowers/brainstorm\"/*/state/server-info)",
+      "Bash(python -c \"from src.config import Config; print\\('Config OK'\\)\")",
+      "Bash(python -c \"from src.api.main import app; print\\('API OK'\\)\")",
+      "WebFetch(domain:paulabartabajo.substack.com)",
+      "Bash(pip install:*)",
+      "Bash(npm install:*)",
+      "Bash(uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(npm run:*)",
+      "Bash(python -c \"from src.api.main import app; print\\('Import OK'\\)\")",
+      "Bash(curl:*)",
+      "Bash(python -m json.tool)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('current_task:', d.get\\('current_task'\\)\\); print\\('graph_state:', d.get\\('graph_state'\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('flagged_edges:', len\\(d['flagged_edges']\\)\\); print\\('total_flagged:', d['audit_run']['total_flagged']\\); print\\('docs:', len\\(d['document_summary']\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('edges returned:', len\\(d.get\\('flagged_edges',[]\\)\\)\\); print\\('total_flagged:', d.get\\('audit_run',{}\\).get\\('total_flagged'\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('edges:', len\\(d.get\\('flagged_edges',[]\\)\\)\\)\")",
+      "Bash(python -c ':*)",
+      "Bash(taskkill //F //IM \"python.exe\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('edges:', len\\(d.get\\('flagged_edges',[]\\)\\)\\); print\\('total_flagged:', d.get\\('audit_run',{}\\).get\\('total_flagged'\\)\\)\")",
+      "Bash(grep -r \"pipeline\\\\|Pipeline\\\\|stages\\\\|STAGES\" backend/src/*.py --include=\"*.py\")",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git commit -m 'wip: preserve in-progress work before phase 2 execution:*)"
     ]
   }
 }

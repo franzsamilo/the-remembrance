@@ -3,24 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import GraphInfoCard, { NodeInfo, EdgeInfo } from "@/components/GraphInfoCard";
-
-interface Triplet {
-  source?: string | null;
-  relation?: string | null;
-  target?: string | null;
-  audit?: number;
-  description?: string;
-  explanation?: string | null;
-  source_docs?: string[];
-  target_docs?: string[];
-  cross_document?: boolean;
-}
-
-interface Lead {
-  name: string;
-  description?: string | null;
-  explanation?: string | null;
-}
+import type { Triplet, Lead } from "@/lib/types";
 
 interface GraphNode {
   id: string;
@@ -55,7 +38,16 @@ interface KnowledgeGraphProps {
   large?: boolean;
 }
 
-// Simple force-directed layout
+// Deterministic seeded RNG for consistent jitter across refreshes
+function seededRandom(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 16807 + 0) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+// Simple force-directed layout with deterministic seeding
 function useForceLayout(
   nodes: GraphNode[],
   edges: GraphEdge[],
@@ -72,9 +64,12 @@ function useForceLayout(
   useEffect(() => {
     if (nodes.length === 0) return;
 
-    // Init node positions if fresh
+    // Init node positions deterministically
     const cx = width / 2;
     const cy = height / 2;
+    // Seed based on node count + names for consistency
+    const seed = nodes.reduce((s, n) => s + n.id.length * 7, nodes.length * 31);
+    const rng = seededRandom(seed);
 
     nodesRef.current = nodes.map((n, i) => {
       if (n.type === "query") {
@@ -84,10 +79,13 @@ function useForceLayout(
       const nonQueryCount = nodes.length - 1;
       const angle = nonQueryCount > 0 ? ((i - 1) / nonQueryCount) * Math.PI * 2 - Math.PI / 2 : 0;
       const radius = n.type === "lead" ? 200 : 150;
+      // Small deterministic jitter to break symmetry consistently
+      const jitterX = (rng() - 0.5) * 10;
+      const jitterY = (rng() - 0.5) * 10;
       return {
         ...n,
-        x: cx + Math.cos(angle) * radius,
-        y: cy + Math.sin(angle) * radius,
+        x: cx + Math.cos(angle) * radius + jitterX,
+        y: cy + Math.sin(angle) * radius + jitterY,
         vx: 0,
         vy: 0,
       };
@@ -713,7 +711,7 @@ export default function KnowledgeGraph({
                   className={`transition-all duration-200 ${
                     !isQueryEdge ? "cursor-pointer" : ""
                   }`}
-                  pointerEvents={isQueryEdge ? "none" : "none"}
+                  pointerEvents={isQueryEdge ? "none" : "auto"}
                 />
                 {/* Edge label with tooltip for full relation name */}
                 {!isQueryEdge && (

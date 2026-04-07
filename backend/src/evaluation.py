@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Generative evaluation: Grounding and Faithfulness via LLM-as-judge.
 Runs test queries through the generator and scores outputs against retrieved triplets.
@@ -6,16 +8,12 @@ import asyncio
 import json
 import os
 import re
-from datetime import datetime, timezone
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.config import Config, logger
 from src.generator import DiscoveryGenerator
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from src.helpers import utc_now_iso as _utc_now_iso
 
 
 def _load_queries() -> list[str]:

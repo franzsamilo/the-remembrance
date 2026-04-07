@@ -7,26 +7,9 @@ import { X, FileText, Scale, ArrowRightCircle, ChevronDown, ChevronUp, Network }
 import { motion, AnimatePresence } from "framer-motion";
 import DetectiveBoard from "@/components/DetectiveBoard";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
-
-const EVIDENCE_STORAGE_KEY = "remembrance_evidence_message";
-
-type Triplet = {
-  source?: string | null;
-  relation?: string | null;
-  target?: string | null;
-  audit?: number;
-  description?: string;
-  explanation?: string | null;
-  source_docs?: string[];
-  target_docs?: string[];
-  cross_document?: boolean;
-};
-
-type Lead = {
-  name: string;
-  description?: string | null;
-  explanation?: string | null;
-};
+import { SkeletonDetectiveBoard } from "@/components/Skeleton";
+import { Triplet, Lead } from "@/lib/types";
+import { STORAGE_KEYS } from "@/lib/constants";
 
 type EvidenceMessage = {
   role: string;
@@ -46,15 +29,14 @@ export default function EvidencePage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const raw = sessionStorage.getItem(EVIDENCE_STORAGE_KEY);
+      const raw = sessionStorage.getItem(STORAGE_KEYS.EVIDENCE_MESSAGE);
       if (raw) {
         const parsed = JSON.parse(raw) as EvidenceMessage;
         setMessage(parsed);
-      } else {
-        router.replace("/");
       }
+      // If no data, stay on page and show fallback UI (don't redirect)
     } catch {
-      router.replace("/");
+      // Corrupted data — stay on page with fallback
     }
   }, [router]);
 
@@ -106,8 +88,8 @@ export default function EvidencePage() {
 
   const handleClose = () => {
     if (typeof window !== "undefined") {
-      sessionStorage.removeItem(EVIDENCE_STORAGE_KEY);
-      sessionStorage.setItem("remembrance_open_chat", "1");
+      sessionStorage.removeItem(STORAGE_KEYS.EVIDENCE_MESSAGE);
+      sessionStorage.setItem(STORAGE_KEYS.OPEN_CHAT, "1");
     }
     router.push("/");
   };
@@ -116,18 +98,43 @@ export default function EvidencePage() {
 
   if (!message) {
     return (
-      <div className="min-h-screen bg-[#F5F2E9] flex items-center justify-center">
-        <p className="text-[#6B6B6B]">Loading evidence...</p>
+      <div className="min-h-screen bg-[#F5F2E9] flex flex-col items-center justify-center p-8 text-center">
+        <div className="p-6 bg-[#E8E4D9]/80 rounded-full border border-[#4A4A4A]/30 mb-6">
+          <Network size={48} className="text-[#6B6B6B]" />
+        </div>
+        <h2 className="text-xl font-semibold text-[#2B2B2B] mb-2" style={{fontFamily: 'EB Garamond, serif'}}>
+          No Evidence Trail Loaded
+        </h2>
+        <p className="text-sm text-[#6B6B6B] max-w-md mb-6">
+          Ask a question from the dashboard with &ldquo;Explain Connections&rdquo; enabled, then click &ldquo;View Evidence&rdquo; to see the full trail here.
+        </p>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#D4AF37] hover:bg-[#B8941F] text-[#2B2B2B] rounded-sm font-semibold shadow-lg transition-all text-sm"
+        >
+          Go to Dashboard
+        </Link>
       </div>
     );
   }
 
   if (!message.explain || triplets.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F5F2E9] flex flex-col items-center justify-center p-8">
-        <p className="text-[#6B6B6B] mb-4">No evidence trail for this message.</p>
-        <Link href="/" className="text-[#D4AF37] hover:underline">
-          Back to dashboard
+      <div className="min-h-screen bg-[#F5F2E9] flex flex-col items-center justify-center p-8 text-center">
+        <div className="p-6 bg-[#E8E4D9]/80 rounded-full border border-[#4A4A4A]/30 mb-6">
+          <FileText size={48} className="text-[#6B6B6B]" />
+        </div>
+        <h2 className="text-xl font-semibold text-[#2B2B2B] mb-2" style={{fontFamily: 'EB Garamond, serif'}}>
+          No Evidence Trail
+        </h2>
+        <p className="text-sm text-[#6B6B6B] max-w-md mb-6">
+          This response did not include detective insights. Go back and ask a question with &ldquo;Explain Connections&rdquo; enabled.
+        </p>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#D4AF37] hover:bg-[#B8941F] text-[#2B2B2B] rounded-sm font-semibold shadow-lg transition-all text-sm"
+        >
+          Back to Dashboard
         </Link>
       </div>
     );
@@ -162,7 +169,7 @@ export default function EvidencePage() {
               className="px-4 py-2 text-sm text-[#6B6B6B] hover:text-[#2B2B2B] transition-colors"
               onClick={() => {
                 if (typeof window !== "undefined") {
-                  sessionStorage.setItem("remembrance_open_chat", "1");
+                  sessionStorage.setItem(STORAGE_KEYS.OPEN_CHAT, "1");
                 }
               }}
             >

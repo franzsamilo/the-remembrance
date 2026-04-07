@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Trash2, X } from "lucide-react";
 
@@ -51,6 +51,43 @@ export default function ConfirmModal({
   loading = false,
 }: ConfirmModalProps) {
   const styles = variantStyles[variant];
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Focus the cancel button when the modal opens
+  useEffect(() => {
+    if (open) {
+      cancelRef.current?.focus();
+    }
+  }, [open]);
+
+  // Escape key closes modal
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !loading) {
+        onCancel();
+      }
+      // Focus trap: Tab within modal
+      if (e.key === "Tab" && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, loading, onCancel]);
 
   const handleConfirm = async () => {
     try {
@@ -69,11 +106,17 @@ export default function ConfirmModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onCancel}
+            onClick={loading ? undefined : onCancel}
             className="fixed inset-0 z-[200] bg-[#2B2B2B]/50 backdrop-blur-sm"
+            aria-hidden="true"
           />
           {/* Modal */}
           <motion.div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-modal-title"
+            aria-describedby="confirm-modal-message"
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -91,36 +134,46 @@ export default function ConfirmModal({
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3
+                      id="confirm-modal-title"
                       className="text-lg font-bold text-[#2B2B2B]"
                       style={{ fontFamily: "EB Garamond, serif" }}
                     >
                       {title}
                     </h3>
-                    <p className="mt-2 text-sm text-[#6B6B6B] leading-relaxed">
+                    <p id="confirm-modal-message" className="mt-2 text-sm text-[#6B6B6B] leading-relaxed">
                       {message}
                     </p>
                   </div>
                   <button
                     onClick={onCancel}
-                    className="shrink-0 rounded p-1.5 text-[#6B6B6B] hover:bg-[#E8E4D9] hover:text-[#2B2B2B] transition-colors"
+                    disabled={loading}
+                    className="shrink-0 rounded p-1.5 text-[#6B6B6B] hover:bg-[#E8E4D9] hover:text-[#2B2B2B] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
+                    aria-label={`Close ${title} dialog`}
                   >
                     <X size={18} />
                   </button>
                 </div>
-                <div className="mt-6 flex justify-end gap-3">
+                <div className="mt-6 flex items-center justify-between">
+                  <span className="text-[10px] text-[#6B6B6B] flex items-center gap-1">
+                    <span className="kbd-hint">Esc</span> to cancel
+                  </span>
+                  <div className="flex gap-3">
                   <button
+                    ref={cancelRef}
                     onClick={onCancel}
-                    className="rounded-md border border-[#4A4A4A] bg-transparent px-4 py-2 text-sm font-medium text-[#4A4A4A] hover:bg-[#E8E4D9] transition-colors"
+                    disabled={loading}
+                    className="rounded-md border border-[#4A4A4A] bg-transparent px-4 py-2 text-sm font-medium text-[#4A4A4A] hover:bg-[#E8E4D9] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
                   >
                     {cancelLabel}
                   </button>
                   <button
                     onClick={handleConfirm}
                     disabled={loading}
-                    className={`rounded-md border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${styles.confirmClass}`}
+                    className={`rounded-md border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] ${styles.confirmClass}`}
                   >
-                    {loading ? "..." : confirmLabel}
+                    {loading ? "Processing..." : confirmLabel}
                   </button>
+                  </div>
                 </div>
               </div>
             </div>

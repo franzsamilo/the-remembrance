@@ -69,10 +69,11 @@ export default function GraphInfoCard({
         }
       : {
           position: "absolute",
-          left: Math.min(Math.max(position.x - 160, 8), 280),
-          top: Math.min(Math.max(position.y - 20, 8), 300),
+          left: `clamp(8px, ${position.x - 160}px, calc(100% - 328px))`,
+          top: `clamp(8px, ${position.y - 20}px, calc(100% - 200px))`,
           zIndex: 100,
           width: 320,
+          maxWidth: "calc(100% - 16px)",
         };
 
   return (
@@ -270,7 +271,7 @@ export default function GraphInfoCard({
                   <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-1.5">
                     Audit Confidence
                   </p>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3" role="meter" aria-label="Audit confidence score" aria-valuenow={Math.round(edgeInfo.audit * 100)} aria-valuemin={0} aria-valuemax={100}>
                     <div className="flex-1 h-2 bg-[#E8E4D9] rounded-full overflow-hidden border border-[#4A4A4A]/20">
                       <motion.div
                         initial={{ width: 0 }}
@@ -291,6 +292,9 @@ export default function GraphInfoCard({
                     </div>
                     <span className="text-xs font-mono font-bold text-[#2B2B2B] shrink-0">
                       {Math.round(edgeInfo.audit * 100)}%
+                    </span>
+                    <span className="text-[9px] text-[#6B6B6B]">
+                      {edgeInfo.audit > 0.8 ? "High" : edgeInfo.audit > 0.5 ? "Medium" : "Low"}
                     </span>
                   </div>
                 </div>

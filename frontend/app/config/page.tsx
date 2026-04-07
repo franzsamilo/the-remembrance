@@ -30,6 +30,7 @@ import Link from "next/link";
 import { API_BASE_URL } from "@/lib/api";
 import StatCard from "@/components/StatCard";
 import AuditItem from "@/components/AuditItem";
+import { SkeletonConfigGrid } from "@/components/Skeleton";
 import { formatAucRoc, formatScore } from "@/lib/utils";
 
 type ConfigData = {
@@ -119,10 +120,17 @@ export default function BackendConfigPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F2E9] text-[#2B2B2B] flex items-center justify-center paper-texture">
-        <div className="flex flex-col items-center gap-4">
-          <Activity className="text-[#D4AF37] animate-spin" size={48} />
-          <p className="text-[#6B6B6B] font-mono">Loading archive configuration...</p>
+      <div className="min-h-screen bg-[#F5F2E9] text-[#2B2B2B] p-8 paper-texture">
+        <header className="max-w-7xl mx-auto mb-8">
+          <Link href="/" className="inline-flex items-center gap-2 text-[#6B6B6B] hover:text-[#D4AF37] transition-colors mb-6 group">
+            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="text-sm font-medium">Back to Dashboard</span>
+          </Link>
+          <div className="skeleton skeleton-text-lg w-64 mb-2" />
+          <div className="skeleton skeleton-text w-96" />
+        </header>
+        <div className="max-w-7xl mx-auto">
+          <SkeletonConfigGrid />
         </div>
       </div>
     );
@@ -130,11 +138,19 @@ export default function BackendConfigPage() {
 
   if (!config) {
     return (
-      <div className="min-h-screen bg-[#F5F2E9] text-[#2B2B2B] flex items-center justify-center paper-texture">
-        <div className="text-center">
-          <AlertTriangle className="text-[#8B1A1A] mx-auto mb-4" size={48} />
-          <p className="text-[#6B6B6B]">Failed to load configuration</p>
+      <div className="min-h-screen bg-[#F5F2E9] text-[#2B2B2B] flex flex-col items-center justify-center paper-texture p-8">
+        <div className="p-6 bg-[#E8E4D9]/80 rounded-full border border-[#4A4A4A]/30 mb-6">
+          <AlertTriangle className="text-[#8B1A1A]" size={48} />
         </div>
+        <h2 className="text-xl font-semibold text-[#2B2B2B] mb-2" style={{fontFamily: 'EB Garamond, serif'}}>
+          Configuration Unavailable
+        </h2>
+        <p className="text-sm text-[#6B6B6B] max-w-md text-center mb-6">
+          Could not load backend configuration. Ensure the backend is running on port 8000 and try again.
+        </p>
+        <Link href="/" className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#D4AF37] hover:bg-[#B8941F] text-[#2B2B2B] rounded-sm font-semibold shadow-lg transition-all text-sm">
+          Back to Dashboard
+        </Link>
       </div>
     );
   }
@@ -217,15 +233,12 @@ export default function BackendConfigPage() {
   );
 }
 
-// Tab 0: Overview (Status + Pipeline Summary + Research KPIs)
+// Tab 0: Overview — system health at a glance
 function OverviewTab({ stats, config, onRefresh, onAudit, auditing }: { stats: StatsData; config: ConfigData; onRefresh: () => void; onAudit: () => void; auditing: boolean }) {
   const graphState = stats?.graph_state;
   const graphReadiness = stats?.graph_readiness;
   const auditReadiness = stats?.audit_readiness;
   const canRunAudit = graphState === "evidence_ready_graph" && !auditing;
-  const auditCoveragePercent = (auditReadiness?.total_relationships ?? 0) > 0
-    ? Math.round(((auditReadiness?.audited_relationships ?? 0) / (auditReadiness?.total_relationships ?? 1)) * 100)
-    : 0;
 
   if (!stats) {
     return (
@@ -252,171 +265,110 @@ function OverviewTab({ stats, config, onRefresh, onAudit, auditing }: { stats: S
           </div>
         </div>
       )}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold flex items-center gap-3">
-          <BarChart3 className="text-[#D4AF37]" size={28} />
-          Live System Status
-        </h2>
-        <button onClick={onRefresh} className="flex items-center gap-2 px-4 py-2 bg-[#E8E4D9] hover:bg-[#D4AF37]/20 rounded-sm border border-[#4A4A4A] text-[#2B2B2B] transition-colors">
-          <RefreshCw size={16} className={stats ? "" : "animate-spin"} />
+
+      {/* Top row: key numbers + refresh */}
+      <div className="flex justify-between items-start">
+        <div className="grid grid-cols-3 gap-4 flex-1 mr-4">
+          <StatCard label="Entities" value={stats?.entities ?? 0} icon={<Database className="text-[#D4AF37]" size={24} />} subtext={graphState === "evidence_ready_graph" ? "Graph ready" : graphState ?? "—"} delay={0} />
+          <StatCard label="Relationships" value={stats?.relationships ?? 0} icon={<Layers className="text-[#8B1A1A]" size={24} />} subtext={`${Math.round(stats?.embedding_progress ?? 0)}% embedded`} delay={0.05} />
+          <StatCard label="Audit" value={(auditReadiness?.state ?? "absent").toUpperCase()} icon={<ShieldCheck className="text-[#3A5A40]" size={24} />} subtext={formatAucRoc(auditReadiness?.latest_auc_roc) !== "—" ? `AUC-ROC: ${formatAucRoc(auditReadiness?.latest_auc_roc)}` : "Not run yet"} delay={0.1} />
+        </div>
+        <button onClick={onRefresh} className="flex items-center gap-2 px-3 py-2 bg-[#E8E4D9] hover:bg-[#D4AF37]/20 rounded-sm border border-[#4A4A4A] text-[#2B2B2B] transition-colors text-sm shrink-0">
+          <RefreshCw size={14} />
           Refresh
         </button>
       </div>
 
-      {/* Pipeline Summary */}
-      {config?.pipeline?.stages?.length > 0 && (
-        <div className="glass rounded-sm p-4">
-          <h3 className="text-xs font-mono uppercase tracking-widest text-[#6B6B6B] mb-3">Pipeline</h3>
-          <div className="flex flex-wrap gap-2">
-            {config.pipeline.stages.map((stage: any, idx: number) => (
-              <span key={idx} className="px-3 py-1.5 bg-[#E8E4D9] border border-[#4A4A4A] rounded-sm text-xs font-medium text-[#2B2B2B]">
-                {stage.order}. {stage.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard label="Entity Nodes" value={stats?.entities ?? 0} icon={<Database className="text-[#D4AF37]" size={24} />} subtext="Cataloged Knowledge" delay={0} />
-        <StatCard label="Supporting Facts" value={stats?.relationships ?? 0} icon={<Layers className="text-[#8B1A1A]" size={24} />} subtext="Extracted Relationships" delay={0.05} />
-        <StatCard label="Vector Coverage" value={`${Math.round(stats?.embedding_progress ?? 0)}%`} icon={<TrendingUp className="text-[#6B6B6B]" size={24} />} subtext="GNN-Ready Nodes" delay={0.1} />
-      </div>
-
-      {/* Research KPIs */}
+      {/* Research KPIs — compact */}
       {stats?.research_kpis && (stats.research_kpis.gnn_auc_roc != null || stats.research_kpis.grounding_score != null) && (
-        <div className="glass rounded-sm p-6 border border-[#4A4A4A]/50">
-          <h3 className="text-sm font-semibold text-[#2B2B2B] mb-3 flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-[#3A5A40]" />
-            Research KPIs
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="glass rounded-sm p-5 border border-[#4A4A4A]/50">
+          <h3 className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3">Research KPIs</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {stats.research_kpis.gnn_auc_roc != null && (
-              <div className="p-3 rounded-lg border border-[#3A5A40]/30 bg-[#3A5A40]/5">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B]">GNN AUC-ROC</p>
-                <p className="text-lg font-bold text-[#3A5A40] mt-0.5">{formatAucRoc(stats.research_kpis.gnn_auc_roc)}</p>
+              <div className="p-2.5 rounded-sm border border-[#3A5A40]/20 bg-[#3A5A40]/5">
+                <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B]">AUC-ROC</p>
+                <p className="text-base font-bold text-[#3A5A40] mt-0.5">{formatAucRoc(stats.research_kpis.gnn_auc_roc)}</p>
               </div>
             )}
             {stats.research_kpis.gnn_mrr != null && (
-              <div className="p-3 rounded-lg border border-[#3A5A40]/30 bg-[#3A5A40]/5">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B]">GNN MRR</p>
-                <p className="text-lg font-bold text-[#3A5A40] mt-0.5">{formatAucRoc(stats.research_kpis.gnn_mrr)}</p>
+              <div className="p-2.5 rounded-sm border border-[#3A5A40]/20 bg-[#3A5A40]/5">
+                <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B]">MRR</p>
+                <p className="text-base font-bold text-[#3A5A40] mt-0.5">{formatAucRoc(stats.research_kpis.gnn_mrr)}</p>
               </div>
             )}
             {stats.research_kpis.grounding_score != null && (
-              <div className="p-3 rounded-lg border border-[#3A5A40]/30 bg-[#3A5A40]/5">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B]">Grounding</p>
-                <p className="text-lg font-bold text-[#3A5A40] mt-0.5">{formatScore(stats.research_kpis.grounding_score)}</p>
+              <div className="p-2.5 rounded-sm border border-[#3A5A40]/20 bg-[#3A5A40]/5">
+                <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B]">Grounding</p>
+                <p className="text-base font-bold text-[#3A5A40] mt-0.5">{formatScore(stats.research_kpis.grounding_score)}</p>
               </div>
             )}
             {stats.research_kpis.faithfulness_score != null && (
-              <div className="p-3 rounded-lg border border-[#3A5A40]/30 bg-[#3A5A40]/5">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B]">Faithfulness</p>
-                <p className="text-lg font-bold text-[#3A5A40] mt-0.5">{formatScore(stats.research_kpis.faithfulness_score)}</p>
+              <div className="p-2.5 rounded-sm border border-[#3A5A40]/20 bg-[#3A5A40]/5">
+                <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B]">Faithfulness</p>
+                <p className="text-base font-bold text-[#3A5A40] mt-0.5">{formatScore(stats.research_kpis.faithfulness_score)}</p>
               </div>
             )}
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard
-          label="Graph State"
-          value={graphState === "evidence_ready_graph" ? "READY" : graphState === "partial_graph" ? "PARTIAL" : "EMPTY"}
-          icon={<Database className="text-[#D4AF37]" size={24} />}
-          subtext={graphState ?? "Unknown"}
-          delay={0.15}
-        />
-        <StatCard
-          label="Audit State"
-          value={(auditReadiness?.state ?? "absent").toUpperCase()}
-          icon={<ShieldCheck className="text-[#8B1A1A]" size={24} />}
-          subtext={auditReadiness?.latest_audit_mode ?? "No audit metadata"}
-          delay={0.2}
-        />
-        <StatCard
-          label="Latest AUC-ROC"
-          value={formatAucRoc(auditReadiness?.latest_auc_roc)}
-          icon={<Activity className="text-[#6B6B6B]" size={24} />}
-          subtext="CompGCN Validation"
-          delay={0.25}
-        />
-      </div>
-
-      <div className="glass rounded-sm p-6 border border-[#4A4A4A]">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="flex items-center gap-2 font-semibold">
-            <Activity size={18} className="text-[#D4AF37]" />
-            Semantic Encoding Progress
+      {/* Encoding progress + Audit trigger */}
+      <div className="glass rounded-sm p-5 border border-[#4A4A4A]">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <Activity size={16} className="text-[#D4AF37]" />
+            Semantic Encoding
           </h3>
           <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-[#6B6B6B]">{stats?.feature_complete ?? 0} / {stats?.entities ?? 0} Nodes</span>
+            <span className="text-xs font-mono text-[#6B6B6B]">{stats?.feature_complete ?? 0} / {stats?.entities ?? 0}</span>
             <button
               onClick={onAudit}
               disabled={!canRunAudit}
               className={`flex items-center gap-2 px-3 py-1 rounded-sm text-[10px] uppercase font-bold tracking-widest transition-all border ${auditing ? "bg-[#E8E4D9] text-[#6B6B6B] border-[#4A4A4A]" : "bg-[#8B1A1A]/10 text-[#8B1A1A] border-[#8B1A1A]/30 hover:bg-[#8B1A1A]/20"}`}
             >
               {auditing ? <RefreshCw size={10} className="animate-spin" /> : <ShieldCheck size={10} />}
-              {auditing ? "Auditing..." : "Run Semantic Audit"}
+              {auditing ? "Auditing..." : "Run Audit"}
             </button>
           </div>
         </div>
-        <div className="w-full bg-[#E8E4D9] rounded-sm h-3 mb-2 overflow-hidden border border-[#4A4A4A]">
+        <div className="w-full bg-[#E8E4D9] rounded-sm h-2.5 overflow-hidden border border-[#4A4A4A]">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${stats?.embedding_progress ?? 0}%` }}
             className="h-full bg-linear-to-r from-[#D4AF37] to-[#B8941F]"
           />
         </div>
-        <p className="text-xs text-[#6B6B6B]">
-          {graphState === "evidence_ready_graph"
-            ? "Archive is semantically indexed and evidence-ready."
-            : graphReadiness?.latest_ingestion_status === "partial"
-            ? "Ingestion completed partially."
-            : "Encoding knowledge vectors..."}
-        </p>
       </div>
 
-      <div className="glass rounded-sm p-6">
-        <h3 className="font-semibold mb-4 flex items-center gap-2">
-          <ShieldCheck size={18} className="text-[#D4AF37]" />
-          Readiness Snapshot
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div className="bg-[#E8E4D9]/60 border border-[#4A4A4A] rounded-sm p-4">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-2">Graph Readiness</p>
-            <p className="font-semibold text-[#2B2B2B]">{graphState ?? "unknown"}</p>
-            <p className="text-xs text-[#6B6B6B] mt-2">
-              Documents: {graphReadiness?.source_documents ?? 0} | Provenance: {graphReadiness?.provenance_covered_nodes ?? 0}
-            </p>
-            <p className="text-xs text-[#6B6B6B] mt-1">
-              Ingestion: {graphReadiness?.latest_ingestion_status ?? "unknown"} | Processed: {graphReadiness?.latest_documents_processed ?? 0} | Failed: {graphReadiness?.latest_documents_failed ?? 0}
-            </p>
+      {/* Readiness — two columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="glass rounded-sm p-5">
+          <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3">Graph Readiness</h4>
+          <p className="font-semibold text-sm text-[#2B2B2B] mb-2">{graphState ?? "unknown"}</p>
+          <div className="space-y-1 text-xs text-[#6B6B6B]">
+            <p>Documents: {graphReadiness?.source_documents ?? 0} | Provenance: {graphReadiness?.provenance_covered_nodes ?? 0}</p>
+            <p>Ingestion: {graphReadiness?.latest_ingestion_status ?? "unknown"} | Processed: {graphReadiness?.latest_documents_processed ?? 0}</p>
           </div>
-          <div className="bg-[#E8E4D9]/60 border border-[#4A4A4A] rounded-sm p-4">
-            <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-2">Audit Readiness</p>
-            <p className="font-semibold text-[#2B2B2B]">{auditReadiness?.state ?? "unknown"}</p>
-            <p className="text-xs text-[#6B6B6B] mt-2">
-              Coverage: {auditReadiness?.audited_relationships ?? 0} / {auditReadiness?.total_relationships ?? 0}
-            </p>
-            <p className="text-xs text-[#6B6B6B] mt-1">
-              Mode: {auditReadiness?.latest_audit_mode ?? "unknown"} | AUC-ROC: {formatAucRoc(auditReadiness?.latest_auc_roc)}
-            </p>
+        </div>
+        <div className="glass rounded-sm p-5">
+          <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3">Audit Readiness</h4>
+          <p className="font-semibold text-sm text-[#2B2B2B] mb-2">{auditReadiness?.state ?? "unknown"}</p>
+          <div className="space-y-1 text-xs text-[#6B6B6B]">
+            <p>Coverage: {auditReadiness?.audited_relationships ?? 0} / {auditReadiness?.total_relationships ?? 0}</p>
+            <p>Mode: {auditReadiness?.latest_audit_mode ?? "—"} | AUC-ROC: {formatAucRoc(auditReadiness?.latest_auc_roc)}</p>
           </div>
         </div>
       </div>
 
-      <div className="glass rounded-sm p-6">
-        <h3 className="font-semibold mb-4 flex items-center gap-2">
-          <CheckCircle2 size={18} className="text-emerald-500" />
-          Audit Readiness Checklist
-        </h3>
-        <div className="space-y-4">
-          <AuditItem label="Neo4j Aura Protocol" success={stats?.status === "healthy"} />
+      {/* Checklist */}
+      <div className="glass rounded-sm p-5">
+        <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3">System Checklist</h4>
+        <div className="space-y-3">
+          <AuditItem label="Neo4j Connected" success={stats?.status === "healthy"} />
           <AuditItem label="Graph Evidence Ready" success={graphState === "evidence_ready_graph"} />
-          <AuditItem label="Document Provenance Coverage" success={(graphReadiness?.provenance_covered_nodes ?? 0) > 0} />
-          <AuditItem label="High-Dim Vector Coverage" success={stats?.embedding_progress === 100} />
-          <AuditItem label="CompGCN Audit Coverage" success={auditReadiness?.state === "ready"} />
+          <AuditItem label="Document Provenance" success={(graphReadiness?.provenance_covered_nodes ?? 0) > 0} />
+          <AuditItem label="Vector Coverage" success={stats?.embedding_progress === 100} />
+          <AuditItem label="CompGCN Audit" success={auditReadiness?.state === "ready"} />
         </div>
       </div>
     </div>

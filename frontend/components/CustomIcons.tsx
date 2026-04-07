@@ -2,7 +2,7 @@
 // Archival-themed icons with unique styling
 
 export const ArchiveBookIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
     {/* Book with archival seal */}
     <rect x="5" y="3" width="14" height="18" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none"/>
     <rect x="6" y="4" width="12" height="16" rx="0.5" fill="currentColor" opacity="0.1"/>
@@ -15,7 +15,7 @@ export const ArchiveBookIcon = ({ size = 24, className = "" }: { size?: number; 
 );
 
 export const KnowledgeGraphIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
     {/* Network nodes with connections */}
     <circle cx="12" cy="12" r="2.5" fill="currentColor"/>
     <circle cx="6" cy="6" r="2" fill="currentColor" opacity="0.7"/>
@@ -31,7 +31,7 @@ export const KnowledgeGraphIcon = ({ size = 24, className = "" }: { size?: numbe
 );
 
 export const WaxSealIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
     {/* Wax seal with checkmark */}
     <circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.15"/>
     <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="1.5"/>
@@ -41,7 +41,7 @@ export const WaxSealIcon = ({ size = 24, className = "" }: { size?: number; clas
 );
 
 export const ScrollIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
     {/* Ancient scroll */}
     <path d="M 6 4 Q 4 4 4 6 L 4 18 Q 4 20 6 20" stroke="currentColor" strokeWidth="1.5" fill="none"/>
     <path d="M 18 4 Q 20 4 20 6 L 20 18 Q 20 20 18 20" stroke="currentColor" strokeWidth="1.5" fill="none"/>
@@ -53,7 +53,7 @@ export const ScrollIcon = ({ size = 24, className = "" }: { size?: number; class
 );
 
 export const ArchiveBoxIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
     {/* Archive box with label */}
     <rect x="4" y="8" width="16" height="12" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none"/>
     <rect x="4" y="4" width="16" height="4" rx="1" fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="1.5"/>
@@ -64,7 +64,7 @@ export const ArchiveBoxIcon = ({ size = 24, className = "" }: { size?: number; c
 );
 
 export const QuillPenIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
     {/* Quill pen for writing */}
     <path d="M 20 4 Q 18 6 16 8 L 8 16 L 4 20 L 6 18 L 8 16 L 16 8 Q 18 6 20 4 Z" fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
     <path d="M 16 8 L 8 16" stroke="currentColor" strokeWidth="1" opacity="0.4"/>
@@ -74,7 +74,7 @@ export const QuillPenIcon = ({ size = 24, className = "" }: { size?: number; cla
 );
 
 export const CatalogIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
     {/* Card catalog */}
     <rect x="5" y="4" width="14" height="16" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none"/>
     <rect x="6" y="5" width="12" height="14" rx="0.5" fill="currentColor" opacity="0.05"/>
@@ -87,7 +87,7 @@ export const CatalogIcon = ({ size = 24, className = "" }: { size?: number; clas
 );
 
 export const ManuscriptIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
     {/* Manuscript pages */}
     <rect x="6" y="3" width="12" height="18" rx="1" fill="currentColor" opacity="0.1" stroke="currentColor" strokeWidth="1.5"/>
     <rect x="7" y="4" width="10" height="16" rx="0.5" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.3"/>
@@ -100,7 +100,7 @@ export const ManuscriptIcon = ({ size = 24, className = "" }: { size?: number; c
 );
 
 export const VaultIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
     {/* Vault door */}
     <rect x="4" y="4" width="16" height="16" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none"/>
     <rect x="5" y="5" width="14" height="14" rx="0.5" fill="currentColor" opacity="0.05"/>
@@ -112,7 +112,7 @@ export const VaultIcon = ({ size = 24, className = "" }: { size?: number; classN
 );
 
 export const InkwellIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
     {/* Inkwell with quill */}
     <path d="M 8 14 L 8 18 Q 8 20 10 20 L 14 20 Q 16 20 16 18 L 16 14 Z" fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="1.5"/>
     <rect x="7" y="12" width="10" height="2" rx="0.5" fill="currentColor" opacity="0.3"/>
@@ -122,7 +122,7 @@ export const InkwellIcon = ({ size = 24, className = "" }: { size?: number; clas
 );
 
 export const SettingsGearIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
     {/* Ornate gear */}
     <circle cx="12" cy="12" r="3" fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="1.5"/>
     <path d="M 12 4 L 12 6 M 12 18 L 12 20 M 4 12 L 6 12 M 18 12 L 20 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -132,7 +132,7 @@ export const SettingsGearIcon = ({ size = 24, className = "" }: { size?: number;
 );
 
 export const DatabaseIcon = ({ size = 24, className = "" }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
     {/* Stacked archive */}
     <ellipse cx="12" cy="6" rx="7" ry="2.5" fill="currentColor" opacity="0.2" stroke="currentColor" strokeWidth="1.5"/>
     <path d="M 5 6 L 5 18 Q 5 20 12 20 Q 19 20 19 18 L 19 6" stroke="currentColor" strokeWidth="1.5" fill="none"/>

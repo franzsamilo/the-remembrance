@@ -12,7 +12,14 @@
   --seal-red: #8B1A1A;
   --conflict-red: #C41E3A;
   --validated-green: #3A5A40;
-  
+
+  /* Semantic color roles — separate accent from status */
+  --accent-gold: #D4AF37;       /* Decorative: arrows, icons, borders */
+  --status-validated: #3A5A40;  /* Positive status: passed, validated */
+  --status-warning: #B8941F;    /* Caution: needs attention */
+  --status-danger: #C41E3A;     /* Error/conflict: failed, flagged */
+  --brand-seal: #8B1A1A;        /* Brand identity: wax seal, logo bg */
+
   /* Legacy variables for compatibility */
   --background: #F5F2E9;
   --foreground: #2B2B2B;
@@ -107,6 +114,25 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+@keyframes flowDot {
+  0% { left: 0; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: calc(100% - 4px); opacity: 0; }
+}
+
+@keyframes shimmerBar {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0%); }
+}
+
+@keyframes ellipsis {
+  0%   { content: "";    width: 0;      }
+  33%  { content: ".";   width: 0.5em;  }
+  66%  { content: "..";  width: 1em;    }
+  100% { content: "..."; width: 1.5em;  }
+}
+
 /* Wax Seal Icon */
 .wax-seal {
   display: inline-flex;
@@ -196,4 +222,100 @@ h1, h2, h3, h4, h5, h6 {
   background: rgba(212, 175, 55, 0.15);
   border-color: rgba(212, 175, 55, 0.4);
   color: var(--gilded-gold);
+}
+
+/* ===== Card Tiers ===== */
+/* Flat: minimal, no elevation — for inline/nested content */
+.card-flat {
+  background: var(--parchment-light);
+  border: 1px solid rgba(74, 74, 74, 0.2);
+  border-radius: 2px;
+}
+
+/* Raised: standard card with subtle depth */
+.card-raised {
+  background: var(--parchment-light);
+  border: 1px solid rgba(74, 74, 74, 0.3);
+  border-radius: 2px;
+  box-shadow:
+    0 1px 3px rgba(43, 43, 43, 0.1),
+    0 1px 2px rgba(43, 43, 43, 0.06);
+}
+
+/* Floating: high-emphasis cards, modals, overlays */
+.card-floating {
+  background: rgba(252, 250, 242, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(74, 74, 74, 0.3);
+  border-radius: 4px;
+  box-shadow:
+    0 4px 16px rgba(43, 43, 43, 0.12),
+    0 2px 4px rgba(43, 43, 43, 0.08);
+}
+
+/* ===== Skeleton Loading ===== */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #E8E4D9 25%,
+    #F0EDE4 37%,
+    #E8E4D9 63%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  border-radius: 2px;
+}
+
+.skeleton-text {
+  height: 0.75rem;
+  border-radius: 2px;
+}
+
+.skeleton-text-lg {
+  height: 1.25rem;
+  border-radius: 2px;
+}
+
+.skeleton-circle {
+  border-radius: 50%;
+}
+
+/* ===== Keyboard Shortcut Hints ===== */
+.kbd-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-light);
+  background: var(--parchment-base);
+  border: 1px solid rgba(74, 74, 74, 0.3);
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(43, 43, 43, 0.12);
+  line-height: 1;
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .gilded-glow, .validated-node {
+    animation: none;
+  }
+  .conflict-edge {
+    animation: none;
+  }
+  .graph-pulse-ring {
+    animation: none;
+  }
+  .animate-ping { animation: none !important; }
+  .skeleton {
+    animation: none;
+    background: #E8E4D9;
+  }
 }

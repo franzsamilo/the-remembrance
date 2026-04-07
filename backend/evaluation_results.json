@@ -1,6 +1,6 @@
 {
-  "grounding_score": 0.8174999999999999,
-  "faithfulness_score": 0.826502557544757,
-  "completed_at": "2026-03-23T17:46:38.013348+00:00",
+  "grounding_score": 0.8415000000000001,
+  "faithfulness_score": 0.825,
+  "completed_at": "2026-04-06T11:49:39.827038+00:00",
   "sample_count": 5
 }

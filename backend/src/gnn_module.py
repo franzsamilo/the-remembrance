@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import copy
-from datetime import datetime, timezone
 import uuid
 
 import torch
@@ -7,10 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from src.config import Config, logger
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from src.helpers import utc_now_iso as _utc_now_iso
 
 
 def _compute_auc_roc(labels: torch.Tensor, probabilities: torch.Tensor) -> float | None:
@@ -220,8 +218,7 @@ def _evaluate_mrr(model: CompGCNAuditModel, data, edge_indices: torch.Tensor, ne
 
 def run_audit():
     """Train and evaluate a local CompGCN-style plausibility model and sync scores."""
-    from neo4j import GraphDatabase
-
+    from src.db import DatabaseManager
     from src.gnn_loader import GNNLoader
 
     # Reproducible runs: same seed yields same AUC/MRR for panel evaluation
@@ -358,84 +355,84 @@ def run_audit():
         f"{final_mrr:.4f}" if final_mrr is not None else "unavailable",
     )
 
-    driver = GraphDatabase.driver(
-        Config.NEO4J_URI,
-        auth=(Config.NEO4J_USERNAME, Config.NEO4J_PASSWORD),
-    )
+    driver = DatabaseManager.get_driver()
     audit_completed_at = _utc_now_iso()
 
-    try:
-        with driver.session(database=Config.NEO4J_DATABASE) as session:
-            logger.info("Syncing CompGCN plausibility scores to Neo4j...")
-            for i in range(data.edge_index.size(1)):
-                rel_id = int(data.edge_rel_id[i].item())
-                score = float(plausibility_scores[i].item())
-
-                session.run(
-                    """
-                    MATCH ()-[r]->()
-                    WHERE id(r) = $rel_id
-                    SET r.plausibility_score = $score,
-                        r.audit_score = $score,
-                        r.experimental_score = $score,
-                        r.audit_status = 'trained_experimental',
-                        r.audit_mode = 'compgcn',
-                        r.audit_model = 'CompGCNAuditModel',
-                        r.audit_updated_at = $updated_at
-                    """,
-                    rel_id=rel_id,
-                    score=score,
-                    updated_at=audit_completed_at,
-                )
-
+    with driver.session(database=Config.NEO4J_DATABASE) as session:
+        logger.info("Syncing CompGCN plausibility scores to Neo4j...")
+        # Batch update all scores in a single query instead of N+1 individual calls
+        updates = []
+        for i in range(data.edge_index.size(1)):
+            updates.append({
+                "rel_id": data.edge_rel_id[i],
+                "score": float(plausibility_scores[i].item()),
+            })
+        batch_size = 500
+        for batch_start in range(0, len(updates), batch_size):
+            batch = updates[batch_start:batch_start + batch_size]
             session.run(
-                f"""
-                MERGE (run:{Config.AUDIT_RUN_LABEL} {{run_id: $run_id}})
-                SET run.status = 'trained_experimental',
-                    run.audit_mode = 'compgcn',
-                    run.audit_model = 'CompGCNAuditModel',
-                    run.started_at = $started_at,
-                    run.completed_at = $completed_at,
-                    run.audited_relationships = $audited_relationships,
-                    run.graph_nodes = $graph_nodes,
-                    run.graph_relationship_types = $graph_relationship_types,
-                    run.hidden_channels = $hidden_channels,
-                    run.epochs = $epochs,
-                    run.learning_rate = $learning_rate,
-                    run.weight_decay = $weight_decay,
-                    run.validation_split = $validation_split,
-                    run.patience = $patience,
-                    run.dropout = $dropout,
-                    run.label_smoothing = $label_smoothing,
-                    run.grad_clip = $grad_clip,
-                    run.neg_ratio = $neg_ratio,
-                    run.auc_roc = $auc_roc,
-                    run.mrr = $mrr,
-                    run.train_loss = $train_loss
+                """
+                UNWIND $updates AS update
+                MATCH ()-[r]->()
+                WHERE elementId(r) = update.rel_id
+                SET r.plausibility_score = update.score,
+                    r.audit_score = update.score,
+                    r.experimental_score = update.score,
+                    r.audit_status = 'trained_experimental',
+                    r.audit_mode = 'compgcn',
+                    r.audit_model = 'CompGCNAuditModel',
+                    r.audit_updated_at = $updated_at
                 """,
-                run_id=audit_run_id,
-                started_at=audit_started_at,
-                completed_at=audit_completed_at,
-                audited_relationships=int(data.edge_index.size(1)),
-                graph_nodes=int(data.x.size(0)),
-                graph_relationship_types=int(num_rels),
-                hidden_channels=Config.COMPGCN_HIDDEN_CHANNELS,
-                epochs=Config.COMPGCN_EPOCHS,
-                learning_rate=Config.COMPGCN_LEARNING_RATE,
-                weight_decay=Config.COMPGCN_WEIGHT_DECAY,
-                validation_split=Config.COMPGCN_VALIDATION_SPLIT,
-                patience=Config.COMPGCN_PATIENCE,
-                dropout=Config.COMPGCN_DROPOUT,
-                label_smoothing=Config.COMPGCN_LABEL_SMOOTHING,
-                grad_clip=Config.COMPGCN_GRAD_CLIP,
-                neg_ratio=neg_ratio,
-                auc_roc=final_auc,
-                mrr=final_mrr,
-                train_loss=final_train_loss,
+                updates=batch,
+                updated_at=audit_completed_at,
             )
-            logger.info("Neo4j CompGCN audit sync complete.")
-    finally:
-        driver.close()
+
+        session.run(
+            f"""
+            MERGE (run:{Config.AUDIT_RUN_LABEL} {{run_id: $run_id}})
+            SET run.status = 'trained_experimental',
+                run.audit_mode = 'compgcn',
+                run.audit_model = 'CompGCNAuditModel',
+                run.started_at = $started_at,
+                run.completed_at = $completed_at,
+                run.audited_relationships = $audited_relationships,
+                run.graph_nodes = $graph_nodes,
+                run.graph_relationship_types = $graph_relationship_types,
+                run.hidden_channels = $hidden_channels,
+                run.epochs = $epochs,
+                run.learning_rate = $learning_rate,
+                run.weight_decay = $weight_decay,
+                run.validation_split = $validation_split,
+                run.patience = $patience,
+                run.dropout = $dropout,
+                run.label_smoothing = $label_smoothing,
+                run.grad_clip = $grad_clip,
+                run.neg_ratio = $neg_ratio,
+                run.auc_roc = $auc_roc,
+                run.mrr = $mrr,
+                run.train_loss = $train_loss
+            """,
+            run_id=audit_run_id,
+            started_at=audit_started_at,
+            completed_at=audit_completed_at,
+            audited_relationships=int(data.edge_index.size(1)),
+            graph_nodes=int(data.x.size(0)),
+            graph_relationship_types=int(num_rels),
+            hidden_channels=Config.COMPGCN_HIDDEN_CHANNELS,
+            epochs=Config.COMPGCN_EPOCHS,
+            learning_rate=Config.COMPGCN_LEARNING_RATE,
+            weight_decay=Config.COMPGCN_WEIGHT_DECAY,
+            validation_split=Config.COMPGCN_VALIDATION_SPLIT,
+            patience=Config.COMPGCN_PATIENCE,
+            dropout=Config.COMPGCN_DROPOUT,
+            label_smoothing=Config.COMPGCN_LABEL_SMOOTHING,
+            grad_clip=Config.COMPGCN_GRAD_CLIP,
+            neg_ratio=neg_ratio,
+            auc_roc=final_auc,
+            mrr=final_mrr,
+            train_loss=final_train_loss,
+        )
+        logger.info("Neo4j CompGCN audit sync complete.")
 
 
 if __name__ == "__main__":

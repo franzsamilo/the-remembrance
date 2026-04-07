@@ -22,10 +22,15 @@ from src.embed_nodes import embed_nodes
 from src.gnn_module import run_audit
 from src.generator import DiscoveryGenerator
 from src.evaluation import run_grounding_evaluation
-from src.aura_agent_client import invoke_agent
 
-# Live Status Tracking
-SYSTEM_STATUS = "Idle"
+# Live Status Tracking (asyncio-safe for single-worker deployment)
+import dataclasses
+
+@dataclasses.dataclass
+class _SystemState:
+    status: str = "Idle"
+
+_system_state = _SystemState()
 
 from contextlib import asynccontextmanager
 
@@ -90,8 +95,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         client = request.client.host if request.client else "unknown"
         now = time.time()
         # Prune old entries
-        _rate_limit_store[client] = [t for t in _rate_limit_store[client] if now - t < _rate_limit_window]
-        if len(_rate_limit_store[client]) >= _rate_limit_max:
+        timestamps = [t for t in _rate_limit_store[client] if now - t < _rate_limit_window]
+        if not timestamps:
+            _rate_limit_store.pop(client, None)
+        else:
+            _rate_limit_store[client] = timestamps
+        if len(_rate_limit_store.get(client, [])) >= _rate_limit_max:
             return JSONResponse(
                 status_code=429,
                 content={"detail": "Too many requests. Please try again later."},
@@ -114,8 +123,17 @@ app.add_middleware(RateLimitMiddleware)
 
 @app.get("/health")
 async def health_check():
-    """Simple health check endpoint."""
-    return {"status": "online", "version": "1.0.0"}
+    """Health check with Neo4j connectivity verification."""
+    health = {"status": "online", "version": "1.0.0", "database": "unknown"}
+    try:
+        driver = DatabaseManager.get_driver()
+        with driver.session(database=Config.NEO4J_DATABASE) as session:
+            session.run("RETURN 1")
+        health["database"] = "connected"
+    except Exception:
+        health["status"] = "degraded"
+        health["database"] = "disconnected"
+    return health
 
 def _stats_research_kpis(latest_auc_roc, latest_mrr):
     """Build research KPIs for dashboard: GNN AUC/MRR + grounding/faithfulness from evaluation_results.json."""
@@ -148,7 +166,7 @@ def _empty_stats_response(status: str = "unavailable", message: str = "Could not
         "feature_complete": 0,
         "relationships": 0,
         "embedding_progress": 0,
-        "current_task": SYSTEM_STATUS,
+        "current_task": _system_state.status,
         "graph_state": "empty",
         "graph_readiness": {
             "source_documents": 0,
@@ -252,7 +270,7 @@ async def get_stats():
                 "feature_complete": record["embedded_nodes"],
                 "relationships": record["total_rels"],
                 "embedding_progress": min(100, (record["embedded_nodes"] / record["retrievable_nodes"] * 100)) if record["retrievable_nodes"] > 0 else 0,
-                "current_task": SYSTEM_STATUS,
+                "current_task": _system_state.status,
                 "graph_state": graph_state,
                 "graph_readiness": {
                     "source_documents": record["source_documents"],
@@ -279,7 +297,7 @@ async def get_stats():
                     audit_result["latest_mrr"] if audit_result else None,
                 ),
             }
-            logger.info(f"Stats retrieved: {stats['nodes']} nodes, {stats['relationships']} rels, task: {SYSTEM_STATUS}")
+            logger.info(f"Stats retrieved: {stats['nodes']} nodes, {stats['relationships']} rels, task: {_system_state.status}")
             return stats
     except Exception as e:
         logger.error(f"Failed to fetch stats: {str(e)}")
@@ -333,8 +351,14 @@ async def upload_document(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Upload failed. Please try again.")
 
 @app.post("/reset")
-async def reset_graph():
-    """Wipes the entire Neo4j database to allow for a fresh framework start."""
+async def reset_graph(request: Request):
+    """Wipes the entire Neo4j database to allow for a fresh framework start.
+    Requires X-Admin-Key header matching ADMIN_API_KEY env var."""
+    admin_key = os.getenv("ADMIN_API_KEY")
+    if admin_key:
+        provided = request.headers.get("X-Admin-Key", "")
+        if provided != admin_key:
+            raise HTTPException(status_code=403, detail="Invalid or missing admin key.")
     try:
         driver = DatabaseManager.get_driver()
         with driver.session(database=Config.NEO4J_DATABASE) as session:
@@ -350,22 +374,21 @@ async def reset_graph():
 async def trigger_ingestion(background_tasks: BackgroundTasks):
     """Triggers the full ingestion and embedding pipeline in the background."""
     async def run_pipeline():
-        global SYSTEM_STATUS
         try:
-            SYSTEM_STATUS = "Extracting Concepts..."
+            _system_state.status = "Extracting Concepts..."
             logger.info("Starting background ingestion pipeline...")
             manifest = await process_documents()
 
             if not manifest or manifest.get("documents_processed", 0) == 0:
-                SYSTEM_STATUS = "Idle"
+                _system_state.status = "Idle"
                 logger.warning("Ingestion produced no processable documents; skipping embedding stage.")
                 return
 
-            SYSTEM_STATUS = "Embedding Nodes..."
+            _system_state.status = "Embedding Nodes..."
             logger.info("Ingestion complete. Starting embedding cold-start...")
             await embed_nodes()
 
-            SYSTEM_STATUS = "Idle"
+            _system_state.status = "Idle"
             logger.info(
                 "Pipeline execution finished with status=%s processed=%s failed=%s",
                 manifest.get("status"),
@@ -373,18 +396,19 @@ async def trigger_ingestion(background_tasks: BackgroundTasks):
                 manifest.get("documents_failed"),
             )
         except Exception as e:
-            SYSTEM_STATUS = f"Error: {str(e)}"
+            _system_state.status = f"Error: {str(e)}"
             logger.error(f"Pipeline failure: {str(e)}")
 
     background_tasks.add_task(run_pipeline)
     return {"message": "Pipeline triggered. Monitor status via /stats."}
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from typing import Literal
 
 class ChatRequest(BaseModel):
-    query: str
+    query: str = Field(..., min_length=1, max_length=5000)
     explain: bool = False
-    mode: str = "graph"  # "graph" = full stack, "prompt_only" = chunk RAG ablation
+    mode: Literal["graph", "prompt_only"] = "graph"
 
 GROUNDING_ERROR_RESPONSE = {
     "narrative_text": "Grounding Error: I cannot answer this because there is no validated evidence in the Knowledge Graph.",
@@ -441,45 +465,15 @@ async def chat_discovery_stream(request: ChatRequest):
 @app.post("/chat")
 @app.post("/query")
 async def chat_discovery(request: ChatRequest):
-    """Answers research queries. Uses local graph by default; Aura Agent when configured and not preferring local."""
-    # Path 0: Prompt-only ablation - bypasses graph and Aura
+    """Answers research queries using local graph retrieval + GNN-filtered synthesis."""
+    # Path 0: Prompt-only ablation - bypasses graph
     if request.mode == "prompt_only":
         generator = DiscoveryGenerator()
         result = await generator.generate_answer_prompt_only(request.query)
         result["grounding_status"] = "OK - Prompt Only (Ablation)"
         return result
 
-    # Path 1: Aura Agent (Module 3) - skipped when PREFER_LOCAL_GRAPH=true
-    if Config.aura_configured() and not Config.PREFER_LOCAL_GRAPH:
-        try:
-            aura_result = await invoke_agent(request.query)
-            if not aura_result.get("grounding_ok"):
-                return {**GROUNDING_ERROR_RESPONSE, "grounding_status": aura_result.get("error") or GROUNDING_ERROR_RESPONSE["grounding_status"]}
-            # Aura success
-            if request.explain:
-                # Hybrid: Aura answer + local triplets for Graph View and per-edge explanations
-                generator = DiscoveryGenerator()
-                local_result = await generator.generate_answer(request.query, explain=True)
-                return {
-                    "narrative_text": aura_result.get("answer", ""),
-                    "triplets": local_result.get("triplets", []),
-                    "leads": local_result.get("leads", []),
-                    "context_summary": local_result.get("context_summary", ""),
-                    "suggested_actions": local_result.get("suggested_actions", []),
-                    "grounding_status": "OK - Aura Agent + Local Graph",
-                }
-            return {
-                "narrative_text": aura_result.get("answer", ""),
-                "triplets": [],
-                "leads": [],
-                "context_summary": "",
-                "grounding_status": "OK - Aura Agent",
-            }
-        except Exception as e:
-            logger.warning("Aura Agent invocation failed, falling back to local retrieval: %s", e)
-            # Fall through to local path
-
-    # Path 2: Local retrieval + synthesis
+    # Path 1: Local retrieval + synthesis
     generator = DiscoveryGenerator()
     result = await generator.generate_answer(request.query, explain=request.explain)
     if _is_grounding_error(result):
@@ -491,18 +485,17 @@ async def chat_discovery(request: ChatRequest):
 async def trigger_audit(background_tasks: BackgroundTasks):
     """Triggers the GNN-based topological integrity audit, then runs grounding/faithfulness evaluation."""
     def run_gnn_audit_then_eval():
-        global SYSTEM_STATUS
         try:
-            SYSTEM_STATUS = "Running GNN Audit..."
+            _system_state.status = "Running GNN Audit..."
             logger.info("Starting GNN Topological Audit...")
             run_audit()
             logger.info("Audit complete. Running grounding/faithfulness evaluation...")
-            SYSTEM_STATUS = "Running Evaluation..."
+            _system_state.status = "Running Evaluation..."
             asyncio.run(run_grounding_evaluation())
-            SYSTEM_STATUS = "Idle"
+            _system_state.status = "Idle"
             logger.info("Evaluation complete.")
         except Exception as e:
-            SYSTEM_STATUS = f"Audit Error: {str(e)}"
+            _system_state.status = f"Audit Error: {str(e)}"
             logger.error(f"Audit failure: {str(e)}")
 
     background_tasks.add_task(run_gnn_audit_then_eval)
@@ -513,19 +506,146 @@ async def trigger_audit(background_tasks: BackgroundTasks):
 async def trigger_evaluation(background_tasks: BackgroundTasks):
     """Triggers grounding and faithfulness evaluation (LLM-as-judge)."""
     async def run_eval():
-        global SYSTEM_STATUS
         try:
-            SYSTEM_STATUS = "Running Evaluation..."
+            _system_state.status = "Running Evaluation..."
             logger.info("Starting grounding/faithfulness evaluation...")
             await run_grounding_evaluation()
-            SYSTEM_STATUS = "Idle"
+            _system_state.status = "Idle"
             logger.info("Evaluation complete.")
         except Exception as e:
-            SYSTEM_STATUS = f"Evaluation Error: {str(e)}"
+            _system_state.status = f"Evaluation Error: {str(e)}"
             logger.error(f"Evaluation failure: {str(e)}")
 
     background_tasks.add_task(run_eval)
     return {"message": "Evaluation triggered. Results will be written to evaluation_results.json."}
+
+
+@app.get("/audit/findings")
+async def get_audit_findings(limit: int = 50):
+    """Returns GNN audit findings: flagged edges, document integrity summary, and audit metadata."""
+    threshold = Config.GROUNDING_MIN_SCORE
+    driver = DatabaseManager.get_driver()
+
+    try:
+        with driver.session(database=Config.NEO4J_DATABASE) as session:
+            # 1. Latest audit run metadata
+            audit_record = session.run(
+                f"""
+                MATCH (run:{Config.AUDIT_RUN_LABEL})
+                RETURN run.run_id AS run_id,
+                       run.completed_at AS completed_at,
+                       run.auc_roc AS auc_roc,
+                       run.mrr AS mrr,
+                       run.audited_relationships AS audited_relationships
+                ORDER BY run.completed_at DESC
+                LIMIT 1
+                """
+            ).single()
+
+            if not audit_record:
+                return {
+                    "audit_run": None,
+                    "document_summary": [],
+                    "flagged_edges": [],
+                }
+
+            # 2. All audited edges with scores and provenance
+            edges_result = session.run(
+                """
+                MATCH (s)-[r]->(t)
+                WHERE r.plausibility_score IS NOT NULL
+                  AND type(r) <> 'FROM_CHUNK'
+                RETURN s.name AS source,
+                       type(r) AS relation,
+                       t.name AS target,
+                       r.plausibility_score AS score,
+                       r.audit_status AS audit_status,
+                       r.description AS description,
+                       s.source_documents AS s_docs,
+                       t.source_documents AS t_docs
+                ORDER BY r.plausibility_score ASC
+                """
+            )
+
+            all_edges = []
+            flagged_edges = []
+            doc_stats: dict[str, dict] = {}
+
+            for rec in edges_result:
+                score = float(rec["score"]) if rec["score"] is not None else 0.0
+                s_docs = rec["s_docs"] or []
+                t_docs = rec["t_docs"] or []
+                if isinstance(s_docs, str):
+                    s_docs = [s_docs]
+                if isinstance(t_docs, str):
+                    t_docs = [t_docs]
+
+                all_docs = list(set(list(s_docs) + list(t_docs)))
+                is_flagged = score < threshold
+                cross_document = (
+                    len(s_docs) > 0
+                    and len(t_docs) > 0
+                    and not (set(s_docs) & set(t_docs))
+                )
+
+                # Track per-document stats
+                for doc in all_docs:
+                    if doc not in doc_stats:
+                        doc_stats[doc] = {"total": 0, "flagged": 0}
+                    doc_stats[doc]["total"] += 1
+                    if is_flagged:
+                        doc_stats[doc]["flagged"] += 1
+
+                if not all_docs:
+                    if "(unattributed)" not in doc_stats:
+                        doc_stats["(unattributed)"] = {"total": 0, "flagged": 0}
+                    doc_stats["(unattributed)"]["total"] += 1
+                    if is_flagged:
+                        doc_stats["(unattributed)"]["flagged"] += 1
+
+                if is_flagged:
+                    flagged_edges.append({
+                        "source": rec["source"],
+                        "relation": rec["relation"],
+                        "target": rec["target"],
+                        "plausibility_score": round(score, 4),
+                        "audit_status": rec["audit_status"],
+                        "source_docs": list(s_docs),
+                        "target_docs": list(t_docs),
+                        "cross_document": cross_document,
+                        "description": rec["description"],
+                    })
+
+            total_audited = int(audit_record["audited_relationships"] or 0)
+            total_flagged = len(flagged_edges)
+
+            document_summary = []
+            for doc, counts in sorted(doc_stats.items()):
+                integrity = 1.0 - (counts["flagged"] / counts["total"]) if counts["total"] > 0 else 1.0
+                document_summary.append({
+                    "document": doc,
+                    "total_edges": counts["total"],
+                    "flagged": counts["flagged"],
+                    "integrity": round(integrity, 4),
+                })
+
+            return {
+                "audit_run": {
+                    "run_id": audit_record["run_id"],
+                    "completed_at": audit_record["completed_at"],
+                    "auc_roc": audit_record["auc_roc"],
+                    "mrr": audit_record["mrr"],
+                    "total_audited": total_audited,
+                    "total_flagged": total_flagged,
+                    "threshold": threshold,
+                },
+                "document_summary": document_summary,
+                "flagged_edges": flagged_edges[:limit],
+            }
+
+    except Exception as e:
+        logger.error("Failed to fetch audit findings: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch audit findings.")
 
 
 @app.get("/documents")
@@ -542,23 +662,26 @@ async def list_documents():
 async def delete_document(filename: str):
     """Deletes a source PDF document by name."""
     docs_path = Config.DOCS_DIR
-    file_path = os.path.join(docs_path, filename)
+
+    # Sanitize: strip path components, reject traversal attempts
+    safe_name = os.path.basename(filename)
+    if safe_name != filename or ".." in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+
+    file_path = os.path.join(docs_path, safe_name)
     abs_file_path = os.path.abspath(file_path)
     abs_docs_path = os.path.abspath(docs_path)
-    
-    logger.info(f"Attempting to delete: {abs_file_path}")
-    
+
     # Security check: ensure the file is actually in the documents folder
-    if not abs_file_path.startswith(abs_docs_path):
-        logger.warning(f"Security: Blocked attempt to delete outside docs: {abs_file_path}")
+    if not abs_file_path.startswith(abs_docs_path + os.sep):
+        logger.warning("Security: Blocked attempt to delete outside docs: %s", abs_file_path)
         raise HTTPException(status_code=403, detail="Access denied.")
-        
+
     if os.path.exists(abs_file_path):
         os.remove(abs_file_path)
-        logger.info(f"File successfully deleted: {filename}")
-        return {"status": "success", "message": f"Deleted {filename}"}
+        logger.info("File successfully deleted: %s", safe_name)
+        return {"status": "success", "message": f"Deleted {safe_name}"}
     else:
-        logger.error(f"Delete failed: {abs_file_path} not found.")
         raise HTTPException(status_code=404, detail="File not found.")
 
 def _build_evaluation_section(latest_auc_roc, latest_mrr, audit_completed_at):

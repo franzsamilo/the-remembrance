@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { ChevronRight, FileText, Shield } from "lucide-react";
+import { ChevronRight, FileText, Shield, ChevronLeft, ChevronsRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { DETECTIVE_BOARD } from "@/lib/constants";
 
 export interface EvidenceStep {
   source: string;
@@ -32,6 +33,19 @@ export default function DetectiveBoard({
   steps,
   answerSummary,
 }: DetectiveBoardProps) {
+  const pageSize = DETECTIVE_BOARD.PAGE_SIZE;
+  const needsPagination = steps.length > pageSize;
+  const [currentPage, setCurrentPage] = useState(0);
+  const totalPages = Math.ceil(steps.length / pageSize);
+
+  const visibleSteps = useMemo(() => {
+    if (!needsPagination) return steps;
+    const start = currentPage * pageSize;
+    return steps.slice(start, start + pageSize);
+  }, [steps, currentPage, pageSize, needsPagination]);
+
+  const pageOffset = currentPage * pageSize;
+
   if (steps.length === 0) return null;
   return (
     <div className="space-y-6">
@@ -45,29 +59,38 @@ export default function DetectiveBoard({
 
       {/* Supporting facts: read in order */}
       <div>
-        <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3 flex items-center gap-2">
-          <FileText size={12} />
-          Supporting Facts — Read in order
-        </p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] flex items-center gap-2">
+            <FileText size={12} />
+            Supporting Facts — Read in order
+            {needsPagination && (
+              <span className="text-[#D4AF37]">
+                ({steps.length} total)
+              </span>
+            )}
+          </p>
+        </div>
         <div className="space-y-4">
-          {steps.map((step, i) => (
+          {visibleSteps.map((step, i) => {
+            const globalIndex = pageOffset + i;
+            return (
             <motion.div
-              key={i}
+              key={globalIndex}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.08 }}
               className="relative pl-8"
             >
               {/* Connector line to next step */}
-              {i < steps.length - 1 && (
+              {i < visibleSteps.length - 1 && (
                 <div className="absolute left-[11px] top-8 w-px h-8 bg-[#D4AF37]/40" />
               )}
               {/* Step number */}
               <div className="absolute left-0 top-0 w-6 h-6 rounded-full bg-[#D4AF37] text-[#2B2B2B] flex items-center justify-center text-xs font-bold">
-                {i + 1}
+                {globalIndex + 1}
               </div>
               {/* Card — lead with plain English explanation */}
-              <div className="p-4 bg-[#FCFAF2] border border-[#4A4A4A]/30 rounded-lg hover:border-[#D4AF37]/40 transition-colors">
+              <div className="p-4 bg-[#FCFAF2] border border-[#4A4A4A]/30 rounded-lg hover:border-[#D4AF37]/40 focus-visible:border-[#D4AF37]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/50 transition-colors" tabIndex={0}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     {step.explanation ? (
@@ -128,14 +151,40 @@ export default function DetectiveBoard({
                 </div>
               </div>
               {/* Arrow to next */}
-              {i < steps.length - 1 && (
+              {i < visibleSteps.length - 1 && (
                 <div className="flex justify-center py-1 text-[#D4AF37]/60">
                   <ChevronRight size={16} className="rotate-90" />
                 </div>
               )}
             </motion.div>
-          ))}
+            );
+          })}
         </div>
+
+        {/* Pagination Controls */}
+        {needsPagination && (
+          <div className="flex items-center justify-between pt-2">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+              disabled={currentPage === 0}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-sm border border-[#4A4A4A]/30 bg-[#FCFAF2] hover:bg-[#E8E4D9] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft size={14} />
+              Previous
+            </button>
+            <span className="text-[10px] font-mono text-[#6B6B6B] uppercase tracking-wider">
+              Facts {pageOffset + 1}–{Math.min(pageOffset + pageSize, steps.length)} of {steps.length}
+            </span>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={currentPage >= totalPages - 1}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-sm border border-[#4A4A4A]/30 bg-[#FCFAF2] hover:bg-[#E8E4D9] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+              <ChevronsRight size={14} />
+            </button>
+          </div>
+        )}
       </div>
 
       {answerSummary && (

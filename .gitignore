@@ -51,3 +51,9 @@ backend/__pycache__/
 backend/output*.txt
 backend/output*.json
 framework.log
+
+# Superpowers brainstorm artifacts
+.superpowers/
+
+# Design docs (optional — remove if you want to track these)
+# docs/superpowers/

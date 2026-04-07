@@ -7,16 +7,12 @@ import {
   Trash2,
   Upload,
   Send,
-  Eye,
   AlertCircle,
   Play,
   X,
   Database,
   BarChart3,
-  FileStack,
-  Scale,
-  FileText,
-  Search
+  Scale
 } from "lucide-react";
 import { 
   KnowledgeGraphIcon,
@@ -31,11 +27,13 @@ import remarkGfm from "remark-gfm";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import ConfirmModal from "@/components/ConfirmModal";
-import PipelineStory from "@/components/PipelineStory";
+import PipelineFlow from "@/components/PipelineFlow";
+import AuditFindingsCard from "@/components/AuditFindingsCard";
+import { SkeletonDocumentList, SkeletonSidebarCard } from "@/components/Skeleton";
 import { API_BASE_URL } from "@/lib/api";
 import { formatAucRoc, formatScore } from "@/lib/utils";
-
-const EVIDENCE_STORAGE_KEY = "remembrance_evidence_message";
+import { STORAGE_KEYS, POLLING, STREAMING } from "@/lib/constants";
+import type { Triplet, Lead, ChatMessage } from "@/lib/types";
 
 export default function FrameworkDashboard() {
   const router = useRouter();
@@ -45,33 +43,19 @@ export default function FrameworkDashboard() {
   const [ingesting, setIngesting] = useState(false);
   const [auditing, setAuditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Chat State
   const [showChat, setShowChat] = useState(false);
   const [query, setQuery] = useState("");
   const [enableDetectiveInsights, setEnableDetectiveInsights] = useState(false);
   const [promptOnlyMode, setPromptOnlyMode] = useState(false);
-  type Triplet = {
-    source?: string | null;
-    relation?: string | null;
-    target?: string | null;
-    audit?: number;
-    description?: string;
-    explanation?: string | null;
-  };
 
-  type Lead = {
-    name: string;
-    description?: string | null;
-    explanation?: string | null;
-  };
-
-  const [messages, setMessages] = useState<{role: 'user' | 'ai', content: string, triplets?: Triplet[], leads?: Lead[], suggested_actions?: string[], userQuery?: string, explain?: boolean, groundingStatus?: string}[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
 
   const openEvidencePage = (msg: { role: string; content: string; triplets?: Triplet[]; leads?: Lead[]; suggested_actions?: string[]; userQuery?: string; explain?: boolean }) => {
     if (typeof window !== "undefined") {
-      sessionStorage.setItem(EVIDENCE_STORAGE_KEY, JSON.stringify(msg));
+      sessionStorage.setItem(STORAGE_KEYS.EVIDENCE_MESSAGE, JSON.stringify(msg));
       router.push("/evidence");
     }
   };
@@ -124,11 +108,34 @@ export default function FrameworkDashboard() {
     }
   };
 
+  const pollIntervalRef = React.useRef<number>(POLLING.IDLE_INTERVAL_MS);
+  const idleTicksRef = React.useRef(0);
+
   useEffect(() => {
     fetchStats();
     fetchDocs();
-    const pollInterval = showActiveTaskBanner ? 2000 : 5000;
-    const interval = setInterval(fetchStats, pollInterval);
+
+    if (showActiveTaskBanner) {
+      // Active task: fast fixed polling, reset backoff
+      pollIntervalRef.current = POLLING.ACTIVE_INTERVAL_MS;
+      idleTicksRef.current = 0;
+    }
+
+    const tick = () => {
+      fetchStats();
+      if (!showActiveTaskBanner) {
+        idleTicksRef.current++;
+        // Backoff after 6 idle ticks (~30s at 5s interval)
+        if (idleTicksRef.current > 6) {
+          pollIntervalRef.current = Math.min(
+            pollIntervalRef.current * POLLING.BACKOFF_MULTIPLIER,
+            POLLING.MAX_INTERVAL_MS
+          );
+        }
+      }
+    };
+
+    const interval = setInterval(tick, showActiveTaskBanner ? POLLING.ACTIVE_INTERVAL_MS : pollIntervalRef.current);
     return () => clearInterval(interval);
   }, [showActiveTaskBanner, fetchStats]);
 
@@ -138,8 +145,8 @@ export default function FrameworkDashboard() {
   }, [isIngestionActive, isAuditActive]);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && sessionStorage.getItem("remembrance_open_chat") === "1") {
-      sessionStorage.removeItem("remembrance_open_chat");
+    if (typeof window !== "undefined" && sessionStorage.getItem(STORAGE_KEYS.OPEN_CHAT) === "1") {
+      sessionStorage.removeItem(STORAGE_KEYS.OPEN_CHAT);
       setShowChat(true);
     }
   }, []);
@@ -152,8 +159,20 @@ export default function FrameworkDashboard() {
       await fetchDocs();
     } catch (err) {
       console.error("Error triggering ingestion:", err);
-      setError("Failed to trigger ingestion pipeline.");
+      setError("Ingestion pipeline failed to start. Ensure documents are uploaded and the backend is running.");
       setIngesting(false);
+    }
+  };
+
+  const triggerAudit = async () => {
+    try {
+      setError(null);
+      await axios.post(`${API_BASE_URL}/audit`);
+      await fetchStats();
+    } catch (err) {
+      console.error("Error triggering audit:", err);
+      setError("GNN audit failed to start. Run the ingestion pipeline first to populate the knowledge graph.");
+      setAuditing(false);
     }
   };
 
@@ -167,9 +186,18 @@ export default function FrameworkDashboard() {
         setLoading(true);
         await axios.post(`${API_BASE_URL}/upload`, formData);
         await fetchDocs();
-    } catch (err) {
+    } catch (err: unknown) {
         console.error("Upload failed:", err);
-        setError("File upload failed. Check backend logs.");
+        const detail = axios.isAxiosError(err) && err.response?.data?.detail
+          ? String(err.response.data.detail)
+          : null;
+        if (axios.isAxiosError(err) && err.response?.status === 413) {
+          setError("File is too large. Try a smaller PDF.");
+        } else if (detail) {
+          setError(`Upload failed: ${detail}`);
+        } else {
+          setError("File upload failed. Is the backend running on port 8000?");
+        }
     } finally {
         setLoading(false);
     }
@@ -201,6 +229,27 @@ export default function FrameworkDashboard() {
             let leads: Lead[] = [];
             let suggested_actions: string[] = [];
             let groundingStatus = "";
+            let batchTimer: ReturnType<typeof setTimeout> | null = null;
+            let pendingFlush = false;
+
+            const flushNarrative = () => {
+              pendingFlush = false;
+              batchTimer = null;
+              setMessages(prev => {
+                const next = [...prev];
+                const lastIdx = next.length - 1;
+                if (next[lastIdx]?.role === "ai") next[lastIdx] = { ...next[lastIdx], content: narrative };
+                return next;
+              });
+            };
+
+            const scheduleFlush = () => {
+              if (!pendingFlush) {
+                pendingFlush = true;
+                batchTimer = setTimeout(flushNarrative, STREAMING.BATCH_INTERVAL_MS);
+              }
+            };
+
             setMessages(prev => [...prev, { role: "ai", content: "", triplets: [], leads: [], suggested_actions: [], userQuery: userMsg, explain: enableDetectiveInsights, promptOnly: promptOnlyMode }]);
             while (reader) {
                 const { done, value } = await reader.read();
@@ -214,12 +263,7 @@ export default function FrameworkDashboard() {
                             const data = JSON.parse(line.slice(6));
                             if (data.type === "chunk") {
                                 narrative += data.text ?? "";
-                                setMessages(prev => {
-                                    const next = [...prev];
-                                    const lastIdx = next.length - 1;
-                                    if (next[lastIdx]?.role === "ai") next[lastIdx] = { ...next[lastIdx], content: narrative };
-                                    return next;
-                                });
+                                scheduleFlush();
                             } else if (data.type === "done") {
                                 triplets = data.triplets ?? [];
                                 leads = data.leads ?? [];
@@ -236,6 +280,8 @@ export default function FrameworkDashboard() {
                     }
                 }
             }
+            // Flush any remaining batched content
+            if (batchTimer) clearTimeout(batchTimer);
             setMessages(prev => {
                 const next = [...prev];
                 const lastIdx = next.length - 1;
@@ -289,7 +335,7 @@ export default function FrameworkDashboard() {
           await fetchDocs();
         } catch (err) {
           console.error("Reset failed:", err);
-          setError("Failed to clear database.");
+          setError("Database reset failed. Ensure the ADMIN_API_KEY is configured and the backend is running.");
         } finally {
           setLoading(false);
           setConfirmInProgress(false);
@@ -313,7 +359,7 @@ export default function FrameworkDashboard() {
           await fetchDocs();
         } catch (err) {
           console.error("Delete failed:", err);
-          setError("Failed to delete document.");
+          setError("Could not remove document. The backend may be processing another request.");
         } finally {
           setConfirmInProgress(false);
         }
@@ -322,199 +368,100 @@ export default function FrameworkDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F2E9] text-[#2B2B2B] p-8 paper-texture">
+    <div className="min-h-screen bg-[#F5F2E9] text-[#2B2B2B] p-6 sm:p-8 paper-texture">
       {/* Header */}
-      <header className="max-w-7xl mx-auto flex justify-between items-center mb-8 relative z-50">
-        <motion.div 
+      <header className="max-w-7xl mx-auto flex justify-between items-center mb-6 relative z-50">
+        <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           className="flex items-center gap-4"
         >
           <div className="p-3 bg-[#8B1A1A] rounded-sm shadow-lg border border-[#4A4A4A]">
-            <KnowledgeGraphIcon className="text-[#F5F2E9]" size={32} />
+            <KnowledgeGraphIcon className="text-[#F5F2E9]" size={28} />
           </div>
           <div>
-              <h1 className="text-5xl font-bold tracking-tight gradient-text" style={{fontFamily: 'EB Garamond, serif'}}>
-                THE REMEMBRANCE VAULT
-              </h1>
-              <p className="text-[#6B6B6B] text-sm font-mono uppercase tracking-widest mt-2">
-                Archival Knowledge Repository
-              </p>
-              <p className="text-[#6B6B6B] text-base mt-1 max-w-lg" style={{ fontFamily: 'EB Garamond, serif' }}>
-                Structured documents → knowledge graph → auditable answers
-              </p>
-            </div>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight gradient-text" style={{fontFamily: 'EB Garamond, serif'}}>
+              THE REMEMBRANCE VAULT
+            </h1>
+            <p className="text-[#6B6B6B] text-xs font-mono uppercase tracking-widest mt-1">
+              Structured documents &rarr; knowledge graph &rarr; auditable answers
+            </p>
+          </div>
         </motion.div>
 
-        <div className="flex items-center gap-6">
-           {/* Primary Controls */}
-           <div className="flex items-center gap-2">
-              <button 
-                onClick={handleReset}
-                className="p-2 hover:bg-[#8B1A1A]/10 text-[#8B1A1A]/60 hover:text-[#8B1A1A] rounded-sm transition-all border border-transparent hover:border-[#8B1A1A]/30"
-                title="Wipe Graph"
-                aria-label="Reset database and wipe graph"
-              >
-                <Trash2 size={18} />
-              </button>
-              
-              <button 
-                onClick={fetchStats}
-                className="p-2 hover:bg-[#E8E4D9] rounded-sm text-[#6B6B6B] hover:text-[#2B2B2B] transition-colors border border-transparent hover:border-[#4A4A4A]"
-                title="Refresh Data"
-                aria-label="Refresh statistics"
-              >
-                <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-              </button>
-           </div>
-           
+        <div className="flex items-center gap-3">
+           <button
+             onClick={handleReset}
+             className="p-2 hover:bg-[#8B1A1A]/10 text-[#8B1A1A]/60 hover:text-[#8B1A1A] rounded-sm transition-all border border-transparent hover:border-[#8B1A1A]/30"
+             title="Wipe Graph"
+             aria-label="Reset database and wipe graph"
+           >
+             <Trash2 size={18} />
+           </button>
+           <button
+             onClick={fetchStats}
+             className="p-2 hover:bg-[#E8E4D9] rounded-sm text-[#6B6B6B] hover:text-[#2B2B2B] transition-colors border border-transparent hover:border-[#4A4A4A]"
+             title="Refresh Data"
+             aria-label="Refresh statistics"
+           >
+             <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+           </button>
            <Link href="/config">
-             <button className="flex items-center gap-2 px-4 py-2 bg-[#FCFAF2] hover:bg-[#F5F2E9] text-[#4A4A4A] hover:text-[#2B2B2B] rounded-sm transition-all border border-[#4A4A4A] hover:border-[#D4AF37] cut-paper">
-               <SettingsGearIcon size={18} />
-               <span className="font-medium">Backend Config</span>
+             <button className="flex items-center gap-2 px-3 py-2 bg-[#FCFAF2] hover:bg-[#F5F2E9] text-[#4A4A4A] hover:text-[#2B2B2B] rounded-sm transition-all border border-[#4A4A4A] hover:border-[#D4AF37] text-sm">
+               <SettingsGearIcon size={16} />
+               <span className="font-medium hidden sm:inline">Config</span>
              </button>
            </Link>
-           
-           <button 
+           <button
             onClick={() => setShowChat(true)}
             title="Answers cite graph evidence"
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#D4AF37] hover:bg-[#B8941F] text-[#2B2B2B] rounded-sm font-semibold shadow-lg transition-all transform hover:scale-105 border border-[#4A4A4A]"
+            className="flex items-center gap-2 px-4 py-2 bg-[#D4AF37] hover:bg-[#B8941F] text-[#2B2B2B] rounded-sm font-semibold shadow-lg transition-all transform hover:scale-105 border border-[#4A4A4A] text-sm"
           >
-            <QuillPenIcon size={18} />
-            <span>Evidence-backed inquiry</span>
+            <QuillPenIcon size={16} />
+            <span className="hidden sm:inline">Ask the Archive</span>
           </button>
         </div>
       </header>
 
-      {/* What this is for — use-case cards */}
-      <motion.section
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
-      >
-        <div className="p-5 rounded-sm border border-[#4A4A4A]/50 bg-[#FCFAF2] cut-paper hover:border-[#D4AF37]/50 transition-colors">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-[#D4AF37]/20 rounded-sm">
-              <FileStack size={20} className="text-[#D4AF37]" />
-            </div>
-            <h3 className="font-semibold text-[#2B2B2B]" style={{ fontFamily: "EB Garamond, serif" }}>Catalog & ingest</h3>
-          </div>
-          <p className="text-sm text-[#6B6B6B]">PDFs → entities & relations in a structured knowledge graph.</p>
-        </div>
-        <div className="p-5 rounded-sm border border-[#4A4A4A]/50 bg-[#FCFAF2] cut-paper hover:border-[#D4AF37]/50 transition-colors">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-[#D4AF37]/20 rounded-sm">
-              <Scale size={20} className="text-[#D4AF37]" />
-            </div>
-            <h3 className="font-semibold text-[#2B2B2B]" style={{ fontFamily: "EB Garamond, serif" }}>Relationship audit</h3>
-          </div>
-          <p className="text-sm text-[#6B6B6B]">GNN plausibility scoring — not generic AI, but graph-native validation.</p>
-        </div>
-        <div className="p-5 rounded-sm border border-[#4A4A4A]/50 bg-[#FCFAF2] cut-paper hover:border-[#D4AF37]/50 transition-colors">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-[#D4AF37]/20 rounded-sm">
-              <FileText size={20} className="text-[#D4AF37]" />
-            </div>
-            <h3 className="font-semibold text-[#2B2B2B]" style={{ fontFamily: "EB Garamond, serif" }}>Evidence & citations</h3>
-          </div>
-          <p className="text-sm text-[#6B6B6B]">Detective Board, sources, cross-document traces.</p>
-        </div>
-        <div className="p-5 rounded-sm border border-[#4A4A4A]/50 bg-[#FCFAF2] cut-paper hover:border-[#D4AF37]/50 transition-colors">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-[#D4AF37]/20 rounded-sm">
-              <Search size={20} className="text-[#D4AF37]" />
-            </div>
-            <h3 className="font-semibold text-[#2B2B2B]" style={{ fontFamily: "EB Garamond, serif" }}>Grounded inquiry</h3>
-          </div>
-          <p className="text-sm text-[#6B6B6B]">Q&A tied to the graph with optional ablation toggle.</p>
-        </div>
-      </motion.section>
-
-      {/* Pipeline strip: quick nav — labels map to Labarta-style Feature / Training / Inference */}
-      <motion.section
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
-        className="max-w-7xl mx-auto mb-4"
-      >
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-2 px-1">
-          <span>Feature: upload &amp; ingest</span>
-          <span className="text-[#4A4A4A]/40">·</span>
-          <span>Training: GNN audit</span>
-          <span className="text-[#4A4A4A]/40">·</span>
-          <span>Inference: grounded Q&amp;A</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-4 sm:gap-6 p-5 rounded-sm border border-[#4A4A4A]/40 bg-[#FCFAF2]/90 cut-paper">
-          <div className="flex items-center gap-2">
-            <Upload size={18} className="text-[#D4AF37] shrink-0" />
-            <span className="text-sm font-medium">Upload</span>
-          </div>
-          <span className="text-[#4A4A4A]/60">→</span>
-          <div className="flex items-center gap-2">
-            <Play size={18} className="text-[#D4AF37] shrink-0" />
-            <span className="text-sm font-medium">Run pipeline</span>
-          </div>
-          <span className="text-[#4A4A4A]/60">→</span>
-          <Link href="/config" className="flex items-center gap-2 text-sm font-medium text-[#2B2B2B] hover:text-[#D4AF37] transition-colors">
-            <BarChart3 size={18} className="shrink-0" />
-            Audit (GNN)
-          </Link>
-          <span className="text-[#4A4A4A]/60">→</span>
-          <div className="flex items-center gap-2">
-            <Search size={18} className="text-[#D4AF37] shrink-0" />
-            <span className="text-sm font-medium">Evidence-backed inquiry</span>
-          </div>
-        </div>
-      </motion.section>
-
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.18 }}
-        className="max-w-7xl mx-auto"
-      >
-        <PipelineStory stats={stats} docCount={documents.length} />
-      </motion.div>
-      
-      {/* Live System Status Hero */}
+      {/* Live System Status Banner */}
       <AnimatePresence>
         {showActiveTaskBanner && (
-            <motion.div 
-                initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                animate={{ opacity: 1, height: 'auto', marginBottom: 32 }}
-                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                className="max-w-7xl mx-auto overflow-hidden"
+            <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="max-w-7xl mx-auto overflow-hidden mb-6"
             >
-                <div className="relative w-full p-1 bg-linear-to-r from-[#D4AF37] via-[#B8941F] to-[#D4AF37] rounded-sm">
-                    <div className="bg-[#FCFAF2] rounded-sm p-6 flex items-center justify-between relative overflow-hidden border border-[#4A4A4A]">
-                        <div className="absolute inset-0 paper-texture" />
-                        <div className="relative z-10 flex items-center gap-6">
+                <div className={`relative w-full p-0.5 rounded-sm ${isAuditActive ? "bg-linear-to-r from-[#3A5A40] via-[#2D4A34] to-[#3A5A40]" : "bg-linear-to-r from-[#D4AF37] via-[#B8941F] to-[#D4AF37]"}`}>
+                    <div className="bg-[#FCFAF2] rounded-sm px-6 py-4 flex items-center justify-between relative overflow-hidden">
+                        <div className="relative z-10 flex items-center gap-4">
                             <div className="relative">
-                                <div className="absolute inset-0 bg-[#D4AF37] blur-xl opacity-30 animate-pulse" />
-                                <Activity size={32} className="text-[#D4AF37] relative z-10 animate-spin-slow" />
+                                <div className={`absolute inset-0 blur-xl opacity-30 animate-pulse ${isAuditActive ? "bg-[#3A5A40]" : "bg-[#D4AF37]"}`} />
+                                {isAuditActive ? (
+                                  <Scale size={24} className="text-[#3A5A40] relative z-10 animate-[spin_3s_linear_infinite]" />
+                                ) : (
+                                  <Activity size={24} className="text-[#D4AF37] relative z-10 animate-spin-slow" />
+                                )}
                             </div>
                             <div>
-                                <h2 className="text-xl font-bold text-[#2B2B2B] tracking-tight flex items-center gap-3" style={{fontFamily: 'EB Garamond, serif'}}>
-                                    Archival Process Active
-                                    <span className="px-2 py-0.5 rounded-sm text-[10px] font-mono bg-[#D4AF37]/20 text-[#8B1A1A] border border-[#D4AF37]/30 uppercase tracking-wider">
-                                        Cataloging
+                                <p className="font-semibold text-[#2B2B2B] text-sm flex items-center gap-2" style={{fontFamily: 'EB Garamond, serif'}}>
+                                    {isAuditActive ? "Semantic Audit in Progress" : "Archival Process Active"}
+                                    <span className={`px-1.5 py-0.5 rounded-sm text-[9px] font-mono border uppercase tracking-wider ${isAuditActive ? "bg-[#3A5A40]/15 text-[#3A5A40] border-[#3A5A40]/30" : "bg-[#D4AF37]/20 text-[#8B1A1A] border-[#D4AF37]/30"}`}>
+                                        {isAuditActive ? "GNN Training" : "Cataloging"}
                                     </span>
-                                </h2>
-                                <p className="text-[#6B6B6B] font-mono text-sm mt-1">
+                                </p>
+                                <p className="text-[#6B6B6B] font-mono text-xs mt-0.5">
                                     &gt; {currentTask}
                                 </p>
                             </div>
                         </div>
-                        
-                        {/* Status Visualization */}
-                        <div className="flex gap-1 items-end h-8">
+                        <div className="flex gap-1 items-end h-6">
                             {[...Array(5)].map((_, i) => (
-                                <motion.div 
+                                <motion.div
                                     key={i}
-                                    animate={{ height: [8, 24, 8] }}
+                                    animate={{ height: [6, 18, 6] }}
                                     transition={{ repeat: Infinity, duration: 1, delay: i * 0.1 }}
-                                    className="w-1.5 bg-[#D4AF37]/50 rounded-full"
+                                    className={`w-1 rounded-full ${isAuditActive ? "bg-[#3A5A40]/50" : "bg-[#D4AF37]/50"}`}
                                 />
                             ))}
                         </div>
@@ -524,187 +471,243 @@ export default function FrameworkDashboard() {
         )}
       </AnimatePresence>
 
-      <main className="max-w-7xl mx-auto space-y-8">
-        {/* Status Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`glass rounded-sm p-6 border cut-paper ${isReady ? "border-[#3A5A40]/50 bg-[#3A5A40]/5" : "border-[#D4AF37]/50 bg-[#D4AF37]/5"}`}
-        >
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className={`w-3 h-3 rounded-full ${isReady ? "bg-[#3A5A40]" : "bg-[#D4AF37]"}`} />
-              <div>
-                <p className="font-semibold text-[#2B2B2B]">
-                  {isReady ? "Archive is ready for queries" : "Archive is not ready — ingest documents and run audit"}
-                </p>
-                <p className="text-xs text-[#6B6B6B] mt-0.5">
-                  {isReady ? "You can query the knowledge graph and view evidence trails." : "Upload PDFs, run the pipeline, then run the semantic audit from Backend Config."}
-                </p>
-              </div>
-            </div>
-            <Link href="/config" className="text-sm font-medium text-[#D4AF37] hover:underline">
-              View system status & config →
-            </Link>
-          </div>
+      {/* Error Alerts */}
+      {(error || hasTaskError || ((stats?.status === "error" || stats?.status === "unavailable") && stats?.message)) && (
+        <div className="max-w-7xl mx-auto mb-6 space-y-2">
           {error && (
-            <div className="mt-4 flex items-start gap-3 p-4 bg-rose-500/10 border border-rose-500/20 rounded-sm">
-              <AlertCircle size={20} className="text-rose-500 shrink-0" />
+            <div className="flex items-start gap-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-sm">
+              <AlertCircle size={18} className="text-rose-500 shrink-0 mt-0.5" />
               <p className="text-sm text-rose-700">{error}</p>
             </div>
           )}
           {(stats?.status === "error" || stats?.status === "unavailable") && stats?.message && (
-            <div className="mt-4 flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-sm">
-              <AlertCircle size={20} className="text-amber-500 shrink-0" />
+            <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-sm">
+              <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
               <p className="text-sm text-amber-800">{stats.message}</p>
             </div>
           )}
           {hasTaskError && (
-            <div className="mt-4 flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-sm">
-              <AlertCircle size={20} className="text-amber-500 shrink-0" />
+            <div className="flex items-start gap-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-sm">
+              <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
               <p className="text-sm text-amber-800 font-mono">{currentTask}</p>
             </div>
           )}
-        </motion.div>
+        </div>
+      )}
 
-        {/* Optional: compact stats row when stats loads */}
-        {stats && (stats.nodes > 0 || stats.relationships > 0) && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-wrap items-center gap-6 p-4 rounded-sm border border-[#4A4A4A]/30 bg-[#FCFAF2]/80 cut-paper"
-          >
-            <div className="flex items-center gap-2">
-              <Database size={16} className="text-[#D4AF37]" />
-              <span className="text-sm text-[#6B6B6B]">Entities:</span>
-              <span className="text-sm font-semibold text-[#2B2B2B]">{stats.nodes ?? 0}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <BarChart3 size={16} className="text-[#D4AF37]" />
-              <span className="text-sm text-[#6B6B6B]">Relationships:</span>
-              <span className="text-sm font-semibold text-[#2B2B2B]">{stats.relationships ?? 0}</span>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Research KPIs */}
-        {(stats?.research_kpis && (stats.research_kpis.gnn_auc_roc != null || stats.research_kpis.grounding_score != null)) && (
+      {/* Main Two-Column Layout */}
+      {loading && !stats ? (
+        <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <SkeletonDocumentList />
+          </div>
+          <div className="space-y-6">
+            <SkeletonSidebarCard />
+            <SkeletonSidebarCard />
+            <SkeletonSidebarCard />
+          </div>
+        </main>
+      ) : (
+      <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* LEFT: Primary workspace (2/3) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Source Document Archive */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="glass rounded-sm p-6 border border-[#4A4A4A]/50 cut-paper bg-[#FCFAF2]"
+            className="card-raised rounded-sm overflow-hidden"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="flex items-center gap-2 font-semibold text-[#2B2B2B]" style={{ fontFamily: "EB Garamond, serif" }}>
-                <BarChart3 size={18} className="text-[#D4AF37]" />
-                Research KPIs
-              </h3>
-              <Link href="/config" className="text-xs font-medium text-[#D4AF37] hover:underline">
-                View full evaluation →
-              </Link>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {stats.research_kpis.gnn_auc_roc != null && (
-                <div className="p-3 rounded-lg border border-[#3A5A40]/30 bg-[#3A5A40]/5">
-                  <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B]">GNN AUC-ROC</p>
-                  <p className="text-lg font-bold text-[#3A5A40] mt-0.5">{formatAucRoc(stats.research_kpis.gnn_auc_roc)}</p>
-                </div>
-              )}
-              {stats.research_kpis.gnn_mrr != null && (
-                <div className="p-3 rounded-lg border border-[#3A5A40]/30 bg-[#3A5A40]/5">
-                  <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B]">GNN MRR</p>
-                  <p className="text-lg font-bold text-[#3A5A40] mt-0.5">{formatAucRoc(stats.research_kpis.gnn_mrr)}</p>
-                </div>
-              )}
-              {stats.research_kpis.grounding_score != null && (
-                <div className="p-3 rounded-lg border border-[#3A5A40]/30 bg-[#3A5A40]/5">
-                  <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B]">Grounding</p>
-                  <p className="text-lg font-bold text-[#3A5A40] mt-0.5">{formatScore(stats.research_kpis.grounding_score)}</p>
-                </div>
-              )}
-              {stats.research_kpis.faithfulness_score != null && (
-                <div className="p-3 rounded-lg border border-[#3A5A40]/30 bg-[#3A5A40]/5">
-                  <p className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B]">Faithfulness</p>
-                  <p className="text-lg font-bold text-[#3A5A40] mt-0.5">{formatScore(stats.research_kpis.faithfulness_score)}</p>
-                </div>
-              )}
-            </div>
-            <p className="text-xs text-[#6B6B6B] mt-3">
-              GNN metrics from audit run; grounding/faithfulness from <code className="bg-[#E8E4D9] px-1 rounded">POST /evaluate</code>.
-            </p>
-          </motion.div>
-        )}
-
-        {/* Source Document Archive */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="glass rounded-sm overflow-hidden border border-[#4A4A4A] cut-paper"
-          >
-            <div className="p-6 border-b border-[#4A4A4A] flex justify-between items-center bg-[#FCFAF2]">
-              <h3 className="flex items-center gap-2 font-semibold" style={{fontFamily: 'EB Garamond, serif'}}>
-                <ManuscriptIcon size={18} className="text-[#D4AF37]" />
-                Source Document Archive
-              </h3>
-              
-              <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 px-4 py-2 rounded-sm font-medium bg-[#F5F2E9] hover:bg-[#E8E4D9] text-[#4A4A4A] transition-all cursor-pointer border border-[#4A4A4A]">
-                    <Upload size={16} />
-                    Upload PDF
-                    <input type="file" accept=".pdf" className="hidden" onChange={handleUpload} />
+            <div className="p-5 border-b border-[#4A4A4A] bg-[#FCFAF2]">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="flex items-center gap-2 font-semibold text-lg" style={{fontFamily: 'EB Garamond, serif'}}>
+                  <ManuscriptIcon size={20} className="text-[#D4AF37]" />
+                  Source Documents
+                </h3>
+                <label className="flex items-center gap-2 px-3 py-1.5 rounded-sm text-sm font-medium bg-[#F5F2E9] hover:bg-[#E8E4D9] text-[#4A4A4A] transition-all cursor-pointer border border-[#4A4A4A]">
+                  <Upload size={14} />
+                  Upload PDF
+                  <input type="file" accept=".pdf" className="hidden" onChange={handleUpload} />
                 </label>
-
-                <button 
+              </div>
+              <div className="flex items-center gap-3">
+                <button
                     onClick={triggerIngestion}
                     disabled={!canRunPipeline}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-sm font-medium transition-all border ${ingesting ? "bg-[#E8E4D9] text-[#6B6B6B] cursor-not-allowed border-[#4A4A4A]" : "bg-[#D4AF37] hover:bg-[#B8941F] text-[#2B2B2B] shadow-lg border-[#4A4A4A]"}`}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm font-medium transition-all border text-sm ${ingesting ? "bg-[#E8E4D9] text-[#6B6B6B] cursor-not-allowed border-[#4A4A4A]" : "bg-[#D4AF37] hover:bg-[#B8941F] text-[#2B2B2B] shadow-lg border-[#4A4A4A]"}`}
                 >
                     {ingesting ? (
+                    <><RefreshCw size={14} className="animate-spin" /> Processing...</>
+                    ) : (
+                    <><Play size={14} fill="currentColor" /> Run Pipeline</>
+                    )}
+                </button>
+
+                <button
+                    onClick={triggerAudit}
+                    disabled={!canRunPipeline}
+                    className={`flex-1 relative flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm font-medium transition-all border text-sm ${auditing ? "bg-[#3A5A40]/10 text-[#3A5A40] cursor-not-allowed border-[#3A5A40]/40 shadow-[0_0_12px_rgba(58,90,64,0.15)]" : "bg-[#FCFAF2] hover:bg-[#E8E4D9] text-[#2B2B2B] border-[#4A4A4A] hover:border-[#D4AF37]"}`}
+                >
+                    {auditing && (
+                      <span className="absolute inset-0 rounded-sm border border-[#3A5A40]/30 animate-pulse" />
+                    )}
+                    {auditing ? (
                     <>
-                        <RefreshCw size={16} className="animate-spin" />
-                        Processing...
+                        <Scale size={14} className="animate-[spin_3s_linear_infinite]" />
+                        <span>Auditing</span>
+                        <span className="flex gap-0.5 ml-1">
+                          {[0, 1, 2].map(i => (
+                            <motion.span key={i} className="w-1 h-1 rounded-full bg-[#3A5A40]" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.3 }} />
+                          ))}
+                        </span>
                     </>
                     ) : (
-                    <>
-                        <Play size={16} fill="currentColor" />
-                        Run Pipeline
-                    </>
+                    <><Scale size={14} /> Run Audit</>
                     )}
                 </button>
               </div>
             </div>
-            <div className="divide-y divide-[#4A4A4A]">
+            <div className="divide-y divide-[#4A4A4A]/30">
               {documents.length > 0 ? documents.map((doc, idx) => (
-                <div key={idx} className="p-5 flex items-center justify-between hover:bg-[#E8E4D9]/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-[#F5F2E9] rounded-sm border border-[#4A4A4A]">
-                      <ManuscriptIcon size={20} className="text-[#6B6B6B]" />
-                    </div>
-                    <span className="text-base font-medium">{doc}</span>
+                <div key={idx} className="px-5 py-3.5 flex items-center justify-between hover:bg-[#E8E4D9]/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <ManuscriptIcon size={16} className="text-[#6B6B6B] shrink-0" />
+                    <span className="text-sm font-medium">{doc}</span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-xs font-mono uppercase bg-[#F5F2E9] px-3 py-1.5 rounded-sm text-[#6B6B6B] border border-[#4A4A4A]">
-                        Source PDF
-                    </div>
-                    <button 
-                        onClick={() => handleDeleteDoc(doc)}
-                        className="p-2 hover:bg-[#8B1A1A]/10 text-[#6B6B6B] hover:text-[#8B1A1A] rounded-sm transition-all"
-                        title="Delete Source"
-                    >
-                        <Trash2 size={18} />
-                    </button>
-                  </div>
+                  <button
+                      onClick={() => handleDeleteDoc(doc)}
+                      className="p-1.5 hover:bg-[#8B1A1A]/10 text-[#6B6B6B] hover:text-[#8B1A1A] rounded-sm transition-all"
+                      title="Remove document"
+                  >
+                      <Trash2 size={14} />
+                  </button>
                 </div>
               )) : (
-                <div className="p-10 text-center text-[#6B6B6B] italic text-base">
-                  No documents found in backend/documents/
+                <div className="p-8 text-center text-[#6B6B6B] italic text-sm">
+                  No documents uploaded yet
                 </div>
               )}
             </div>
           </motion.div>
+
+          {/* Pipeline Detail (collapsible) */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <PipelineFlow stats={stats} currentTask={currentTask} />
+          </motion.div>
+        </div>
+
+        {/* RIGHT: Status sidebar (1/3) */}
+        <div className="space-y-6">
+          {/* Archive Status */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className={`card-raised rounded-sm p-5 ${isReady ? "border-[#3A5A40]/50 bg-[#3A5A40]/5" : "border-[#D4AF37]/50 bg-[#D4AF37]/5"}`}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <div className="relative flex items-center justify-center" aria-hidden="true">
+                <div className={`w-2.5 h-2.5 rounded-full ${isReady ? "bg-[#3A5A40]" : "bg-[#D4AF37]"}`} />
+                {isReady && <div className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-[#3A5A40] animate-ping opacity-30" />}
+              </div>
+              <p className="font-semibold text-sm text-[#2B2B2B]">
+                {isReady ? "Archive Ready" : "Not Ready"}
+              </p>
+              <span className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${isReady ? "bg-[#3A5A40]/10 text-[#3A5A40] border-[#3A5A40]/20" : "bg-[#D4AF37]/10 text-[#B8941F] border-[#D4AF37]/20"}`}>
+                {isReady ? "Validated" : "Pending"}
+              </span>
+            </div>
+            <p className="text-xs text-[#6B6B6B] leading-relaxed">
+              {isReady ? "Knowledge graph is validated. You can query with evidence-backed answers." : "Upload PDFs, run the pipeline, then run audit to enable queries."}
+            </p>
+            <Link href="/config" className="inline-block mt-3 text-xs font-medium text-[#D4AF37] hover:underline">
+              System details &rarr;
+            </Link>
+          </motion.div>
+
+          {/* Graph Stats */}
+          {stats && (stats.nodes > 0 || stats.relationships > 0) && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="card-raised rounded-sm p-5"
+            >
+              <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B] mb-3">Knowledge Graph</h4>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Database size={14} className="text-[#D4AF37]" />
+                    <span className="text-xs text-[#6B6B6B]">Entities</span>
+                  </div>
+                  <span className="text-sm font-bold text-[#2B2B2B]">{(stats.nodes ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 size={14} className="text-[#D4AF37]" />
+                    <span className="text-xs text-[#6B6B6B]">Relationships</span>
+                  </div>
+                  <span className="text-sm font-bold text-[#2B2B2B]">{(stats.relationships ?? 0).toLocaleString()}</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Research KPIs */}
+          {(stats?.research_kpis && (stats.research_kpis.gnn_auc_roc != null || stats.research_kpis.grounding_score != null)) && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="card-raised rounded-sm p-5"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-[10px] font-mono uppercase tracking-widest text-[#6B6B6B]">Research KPIs</h4>
+                <Link href="/config" className="text-[10px] font-medium text-[#D4AF37] hover:underline">Details</Link>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {stats.research_kpis.gnn_auc_roc != null && (
+                  <div className="p-2.5 rounded-sm border border-[#3A5A40]/20 bg-[#3A5A40]/5">
+                    <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B]">AUC-ROC</p>
+                    <p className="text-base font-bold text-[#3A5A40] mt-0.5">{formatAucRoc(stats.research_kpis.gnn_auc_roc)}</p>
+                  </div>
+                )}
+                {stats.research_kpis.gnn_mrr != null && (
+                  <div className="p-2.5 rounded-sm border border-[#3A5A40]/20 bg-[#3A5A40]/5">
+                    <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B]">MRR</p>
+                    <p className="text-base font-bold text-[#3A5A40] mt-0.5">{formatAucRoc(stats.research_kpis.gnn_mrr)}</p>
+                  </div>
+                )}
+                {stats.research_kpis.grounding_score != null && (
+                  <div className="p-2.5 rounded-sm border border-[#3A5A40]/20 bg-[#3A5A40]/5">
+                    <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B]">Grounding</p>
+                    <p className="text-base font-bold text-[#3A5A40] mt-0.5">{formatScore(stats.research_kpis.grounding_score)}</p>
+                  </div>
+                )}
+                {stats.research_kpis.faithfulness_score != null && (
+                  <div className="p-2.5 rounded-sm border border-[#3A5A40]/20 bg-[#3A5A40]/5">
+                    <p className="text-[9px] font-mono uppercase tracking-widest text-[#6B6B6B]">Faithfulness</p>
+                    <p className="text-base font-bold text-[#3A5A40] mt-0.5">{formatScore(stats.research_kpis.faithfulness_score)}</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Audit Findings */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <AuditFindingsCard />
+          </motion.div>
+        </div>
       </main>
+      )}
 
       {/* Chat Drawer Side Panel */}
       <AnimatePresence>
@@ -741,7 +744,7 @@ export default function FrameworkDashboard() {
 
               <div className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
                 {messages.length === 0 && (
-                    <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-30">
+                    <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-50">
                         <div className="p-6 bg-[#E8E4D9]/80 rounded-full border border-[#4A4A4A]">
                             <KnowledgeGraphIcon size={48} className="text-[#2B2B2B]" />
                         </div>

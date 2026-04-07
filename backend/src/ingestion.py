@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import json
 import os
@@ -5,7 +7,6 @@ import sys
 import time
 import uuid
 import warnings
-from datetime import datetime, timezone
 from typing import List, Optional, Sequence, Union
 
 from sentence_transformers import SentenceTransformer
@@ -18,7 +19,7 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="google.oauth2"
 # Append parent directory to sys.path to resolve imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from neo4j import GraphDatabase
+from src.db import DatabaseManager
 from neo4j_graphrag.embeddings.base import Embedder
 from neo4j_graphrag.exceptions import LLMGenerationError
 from neo4j_graphrag.experimental.pipeline.kg_builder import SimpleKGPipeline
@@ -41,8 +42,7 @@ from src.config import (
 )
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from src.helpers import utc_now_iso as _utc_now_iso
 
 
 class DistilBertEmbedder(Embedder):
@@ -101,8 +101,8 @@ class GeminiLLM(LLMInterface):
         message_history: Optional[Union[List[LLMMessage], MessageHistory]] = None,
         system_instruction: Optional[str] = None,
     ) -> LLMResponse:
-        max_retries = 5
-        base_delay = 5
+        max_retries = Config.INGESTION_LLM_MAX_RETRIES
+        base_delay = Config.INGESTION_LLM_BASE_DELAY
         for i in range(max_retries):
             try:
                 result = await self.internal_llm.ainvoke(input)
@@ -151,12 +151,12 @@ def _count_graph(session) -> tuple[int, int]:
     return int(record["total_nodes"]), int(record["total_relationships"])
 
 
-def _snapshot_graph_ids(session) -> tuple[set[int], set[int]]:
-    node_records = session.run("MATCH (n) RETURN id(n) AS id")
-    rel_records = session.run("MATCH ()-[r]->() RETURN id(r) AS id")
+def _snapshot_graph_ids(session) -> tuple[set[str], set[str]]:
+    node_records = session.run("MATCH (n) RETURN elementId(n) AS id")
+    rel_records = session.run("MATCH ()-[r]->() RETURN elementId(r) AS id")
     return (
-        {int(record["id"]) for record in node_records},
-        {int(record["id"]) for record in rel_records},
+        {record["id"] for record in node_records},
+        {record["id"] for record in rel_records},
     )
 
 
@@ -186,15 +186,15 @@ def _tag_document_provenance(
     run_id: str,
     filename: str,
     file_path: str,
-    new_node_ids: list[int],
-    new_rel_ids: list[int],
+    new_node_ids: list[str],
+    new_rel_ids: list[str],
 ) -> None:
     timestamp = _utc_now_iso()
     if new_node_ids:
         session.run(
             """
             MATCH (n)
-            WHERE id(n) IN $node_ids
+            WHERE elementId(n) IN $node_ids
             SET n.source_document = $filename,
                 n.source_path = $file_path,
                 n.ingestion_run_id = $run_id,
@@ -216,7 +216,7 @@ def _tag_document_provenance(
         session.run(
             """
             MATCH ()-[r]->()
-            WHERE id(r) IN $rel_ids
+            WHERE elementId(r) IN $rel_ids
             SET r.source_document = $filename,
                 r.source_path = $file_path,
                 r.ingestion_run_id = $run_id,
@@ -237,7 +237,7 @@ def _tag_document_provenance(
         session.run(
             """
             MATCH (s)-[r]->(t)
-            WHERE id(r) IN $rel_ids
+            WHERE elementId(r) IN $rel_ids
             SET s.source_documents = CASE
                     WHEN $filename IN coalesce(s.source_documents, []) THEN coalesce(s.source_documents, [])
                     ELSE coalesce(s.source_documents, []) + $filename
@@ -316,7 +316,7 @@ async def process_documents():
         "documents": [],
     }
 
-    driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USERNAME, NEO4J_PASSWORD))
+    driver = DatabaseManager.get_driver()
 
     try:
         documents_folder = Config.DOCS_DIR
@@ -420,7 +420,7 @@ async def process_documents():
         )
         return manifest
     finally:
-        driver.close()
+        pass  # Driver managed by DatabaseManager singleton
 
 
 if __name__ == "__main__":

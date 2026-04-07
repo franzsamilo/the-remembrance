@@ -1,16 +1,14 @@
+from __future__ import annotations
+
 import asyncio
 import sys
-from datetime import datetime, timezone
 
-from neo4j import GraphDatabase
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
 from src.config import Config, logger
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+from src.db import DatabaseManager
+from src.helpers import utc_now_iso as _utc_now_iso
 
 
 def _select_text_and_field(properties: dict) -> tuple[str | None, str | None]:
@@ -33,10 +31,7 @@ async def embed_nodes():
 
     logger.info("Connecting to Neo4j at %s", Config.NEO4J_URI)
     try:
-        driver = GraphDatabase.driver(
-            Config.NEO4J_URI,
-            auth=(Config.NEO4J_USERNAME, Config.NEO4J_PASSWORD),
-        )
+        driver = DatabaseManager.get_driver()
     except Exception as exc:
         logger.error("Failed to connect to Neo4j: %s", exc)
         return
@@ -53,7 +48,7 @@ async def embed_nodes():
                     OR n.embedding_model <> $embedding_model
                     OR coalesce(n.embedding_dimension, 0) <> $embedding_dimension
                   )
-                RETURN id(n) as node_id, labels(n) as labels, n as properties
+                RETURN elementId(n) as node_id, labels(n) as labels, n as properties
             """
             result = session.run(
                 query,
@@ -95,7 +90,7 @@ async def embed_nodes():
                         vector = embedding.tolist()
                         tx.run("""
                             MATCH (n)
-                            WHERE id(n) = $node_id
+                            WHERE elementId(n) = $node_id
                             SET n.embedding = $vector,
                                 n.embedding_model = $embedding_model,
                                 n.embedding_dimension = $embedding_dimension,
@@ -120,8 +115,6 @@ async def embed_nodes():
 
     except Exception as exc:
         logger.exception("Embedding alignment failed: %s", exc)
-    finally:
-        driver.close()
 
 if __name__ == "__main__":
     if sys.platform == "win32":

@@ -1,15 +1,12 @@
 import torch
 from torch_geometric.data import Data
-from neo4j import GraphDatabase
 import numpy as np
 from src.config import Config, logger
+from src.db import DatabaseManager
 
 class GNNLoader:
     def __init__(self):
-        self.driver = GraphDatabase.driver(
-            Config.NEO4J_URI, 
-            auth=(Config.NEO4J_USERNAME, Config.NEO4J_PASSWORD)
-        )
+        self.driver = DatabaseManager.get_driver()
 
     def fetch_graph_data(self):
         """Fetches nodes and relationships from Neo4j for GNN processing.
@@ -26,7 +23,7 @@ class GNNLoader:
                 rel_query = """
                 MATCH (s)-[r]->(t)
                 WHERE type(r) <> 'FROM_CHUNK'
-                RETURN id(r) as rel_id, id(s) as source, id(t) as target, type(r) as type
+                RETURN elementId(r) as rel_id, elementId(s) as source, elementId(t) as target, type(r) as type
                 """
                 rel_records = list(session.run(rel_query))
 
@@ -44,11 +41,11 @@ class GNNLoader:
                 logger.info("Fetching node embeddings for %s nodes...", len(node_ids))
                 emb_query = """
                 MATCH (n)
-                WHERE id(n) IN $node_ids
+                WHERE elementId(n) IN $node_ids
                   AND n.embedding IS NOT NULL
                   AND n.embedding_model = $embedding_model
                   AND coalesce(n.embedding_dimension, 0) = $embedding_dimension
-                RETURN id(n) as id, n.embedding as embedding
+                RETURN elementId(n) as id, n.embedding as embedding
                 """
                 emb_result = session.run(
                     emb_query,
@@ -96,7 +93,6 @@ class GNNLoader:
                 x = x / norms
                 edge_index_t = torch.tensor(edge_index, dtype=torch.long)
                 edge_type_t = torch.tensor(edge_type_list, dtype=torch.long)
-                edge_rel_id_t = torch.tensor(edge_rel_id, dtype=torch.long)
 
                 embedded_count = sum(1 for nid in node_ids if nid in id_to_emb)
                 logger.info(
@@ -104,13 +100,14 @@ class GNNLoader:
                     len(nodes), embedded_count, len(edge_type_list),
                 )
 
-                return Data(x=x, edge_index=edge_index_t, edge_type=edge_type_t, edge_rel_id=edge_rel_id_t), rel_types, node_id_map
+                data = Data(x=x, edge_index=edge_index_t, edge_type=edge_type_t)
+                # Store elementId strings separately (not a tensor — they're Neo4j string IDs)
+                data.edge_rel_id = edge_rel_id
+                return data, rel_types, node_id_map
 
         except Exception as e:
             logger.error(f"Error loading GNN data: {str(e)}")
             return None
-        finally:
-            self.driver.close()
 
 if __name__ == "__main__":
     loader = GNNLoader()
