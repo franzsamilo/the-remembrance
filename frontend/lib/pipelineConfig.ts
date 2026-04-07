@@ -16,9 +16,9 @@ export interface PipelineStage {
 }
 
 export const PHASE_COLORS: Record<Phase, { border: string; text: string; bg: string }> = {
-  feature: { border: "border-[#3A5A40]", text: "text-[#3A5A40]", bg: "bg-[#3A5A40]" },
-  training: { border: "border-[#D4AF37]", text: "text-[#D4AF37]", bg: "bg-[#D4AF37]" },
-  inference: { border: "border-[#8B1A1A]", text: "text-[#8B1A1A]", bg: "bg-[#8B1A1A]" },
+  feature: { border: "border-[#2D6A4F]", text: "text-[#2D6A4F]", bg: "bg-[#2D6A4F]" },
+  training: { border: "border-[#C5A028]", text: "text-[#C5A028]", bg: "bg-[#C5A028]" },
+  inference: { border: "border-[#7A1A1A]", text: "text-[#7A1A1A]", bg: "bg-[#7A1A1A]" },
 };
 
 function statusFromTask(currentTask: string, graphState: string, keywords: string[]): StageStatus {
