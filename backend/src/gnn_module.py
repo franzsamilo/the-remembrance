@@ -10,6 +10,9 @@ import torch.nn.functional as F
 from src.config import Config, logger
 from src.helpers import utc_now_iso as _utc_now_iso
 
+# Training history for UI visualization (module-level, survives across requests)
+_training_history: dict = {"epochs": [], "early_stop_epoch": None, "best_epoch": None}
+
 
 def _compute_auc_roc(labels: torch.Tensor, probabilities: torch.Tensor) -> float | None:
     if labels.numel() == 0:
@@ -273,6 +276,7 @@ def run_audit():
     best_auc = float("-inf")
     final_train_loss = None
     patience_counter = 0
+    epoch_metrics = []
 
     for epoch in range(Config.COMPGCN_EPOCHS):
         model.train()
@@ -319,6 +323,12 @@ def run_audit():
         else:
             patience_counter += 1
 
+        epoch_metrics.append({
+            "epoch": epoch + 1,
+            "train_loss": round(final_train_loss, 4) if final_train_loss is not None else None,
+            "auc_roc": round(current_auc, 4) if current_auc is not None else None,
+        })
+
         if patience_counter >= Config.COMPGCN_PATIENCE:
             logger.info(
                 "CompGCN early stopping at epoch %s (no improvement for %s epochs)",
@@ -347,6 +357,19 @@ def run_audit():
         final_mrr = _evaluate_mrr(model, data, val_idx, neg_ratio, positive_triples)
         if final_mrr is None:
             final_mrr = _evaluate_mrr(model, data, train_idx, neg_ratio, positive_triples)
+
+    # Store training history for UI
+    global _training_history
+    _training_history = {
+        "epochs": epoch_metrics,
+        "early_stop_epoch": (epoch + 1) if patience_counter >= Config.COMPGCN_PATIENCE else None,
+        "best_epoch": next(
+            (i + 1 for i, m in enumerate(epoch_metrics) if m["auc_roc"] == (round(best_auc, 4) if best_auc > float("-inf") else None)),
+            None,
+        ),
+        "final_auc_roc": round(final_auc, 4) if final_auc is not None else None,
+        "final_mrr": round(final_mrr, 4) if final_mrr is not None else None,
+    }
 
     logger.info(
         "CompGCN audit completed for %s relationships with auc_roc=%s mrr=%s",
@@ -433,6 +456,11 @@ def run_audit():
             train_loss=final_train_loss,
         )
         logger.info("Neo4j CompGCN audit sync complete.")
+
+
+def get_training_history() -> dict:
+    """Return the last training run's per-epoch metrics."""
+    return _training_history
 
 
 if __name__ == "__main__":

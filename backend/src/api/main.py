@@ -21,7 +21,7 @@ from src.config import Config, logger
 from src.db import DatabaseManager
 from src.ingestion import process_documents
 from src.embed_nodes import embed_nodes
-from src.gnn_module import run_audit
+from src.gnn_module import run_audit, get_training_history
 from src.generator import DiscoveryGenerator
 from src.evaluation import run_grounding_evaluation
 
@@ -674,6 +674,12 @@ async def get_audit_findings(limit: int = 50):
     except Exception as e:
         logger.error("Failed to fetch audit findings: %s", e)
         raise HTTPException(status_code=500, detail="Failed to fetch audit findings.")
+
+
+@app.get("/audit/training-history")
+async def get_audit_training_history():
+    """Returns per-epoch GNN training metrics for visualization."""
+    return get_training_history()
 
 
 @app.get("/documents")
