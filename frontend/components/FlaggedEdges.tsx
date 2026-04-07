@@ -25,25 +25,25 @@ function riskLevel(score: number, threshold: number) {
   if (score < 0.5)
     return {
       label: "High Risk",
-      bg: "bg-[#8B1A1A]/10 border-[#8B1A1A]/30",
-      text: "text-[#8B1A1A]",
-      bar: "#8B1A1A",
-      dot: "bg-[#8B1A1A]",
+      bg: "bg-[#7A1A1A]/10 border-[#7A1A1A]/30",
+      text: "text-[#7A1A1A]",
+      bar: "#7A1A1A",
+      dot: "bg-[#7A1A1A]",
     };
   if (score < 0.8)
     return {
       label: "Moderate Risk",
-      bg: "bg-[#D4AF37]/10 border-[#D4AF37]/30",
-      text: "text-[#D4AF37]",
-      bar: "#D4AF37",
-      dot: "bg-[#D4AF37]",
+      bg: "bg-[#C5A028]/10 border-[#C5A028]/30",
+      text: "text-[#C5A028]",
+      bar: "#C5A028",
+      dot: "bg-[#C5A028]",
     };
   return {
     label: "Low Risk",
-    bg: "bg-[#D4AF37]/5 border-[#D4AF37]/20",
+    bg: "bg-[#C5A028]/5 border-[#C5A028]/20",
     text: "text-[#8B6914]",
-    bar: "#B8941F",
-    dot: "bg-[#D4AF37]",
+    bar: "#A68A1E",
+    dot: "bg-[#C5A028]",
   };
 }
 
@@ -71,10 +71,10 @@ export default function FlaggedEdges({
   if (sorted.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
-        <div className="p-3 bg-[#3A5A40]/10 border border-[#3A5A40]/30 rounded-full">
-          <AlertTriangle size={20} className="text-[#3A5A40]" />
+        <div className="p-3 bg-[#2D6A4F]/10 border border-[#2D6A4F]/30 rounded-full">
+          <AlertTriangle size={20} className="text-[#2D6A4F]" />
         </div>
-        <p className="text-sm text-[#6B6B6B] italic">
+        <p className="text-sm text-[#737373] italic">
           {filterDoc
             ? "No flagged relationships for this document."
             : "No flagged relationships found."}
@@ -108,24 +108,24 @@ export default function FlaggedEdges({
                   {/* Triplet */}
                   <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                     <span
-                      className="text-sm font-semibold text-[#8B1A1A] truncate max-w-[160px]"
+                      className="text-sm font-semibold text-[#7A1A1A] truncate max-w-[160px]"
                       title={edge.source}
                     >
                       {truncate(edge.source)}
                     </span>
                     <div className="flex items-center gap-0.5 shrink-0">
-                      <div className="w-4 h-px bg-[#D4AF37]" />
-                      <div className="w-0 h-0 border-l-[4px] border-l-[#D4AF37] border-y-[2.5px] border-y-transparent" />
+                      <div className="w-4 h-px bg-[#C5A028]" />
+                      <div className="w-0 h-0 border-l-[4px] border-l-[#C5A028] border-y-[2.5px] border-y-transparent" />
                     </div>
-                    <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-[#6B6B6B] bg-[#E8E4D9] border border-[#4A4A4A]/20 rounded px-1.5 py-0.5 shrink-0">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-[#737373] bg-[#F5F5F3] border border-[#E5E5E3]/20 rounded px-1.5 py-0.5 shrink-0">
                       {truncate(edge.relation, 24)}
                     </span>
                     <div className="flex items-center gap-0.5 shrink-0">
-                      <div className="w-4 h-px bg-[#D4AF37]" />
-                      <div className="w-0 h-0 border-l-[4px] border-l-[#D4AF37] border-y-[2.5px] border-y-transparent" />
+                      <div className="w-4 h-px bg-[#C5A028]" />
+                      <div className="w-0 h-0 border-l-[4px] border-l-[#C5A028] border-y-[2.5px] border-y-transparent" />
                     </div>
                     <span
-                      className="text-sm font-semibold text-[#3A5A40] truncate max-w-[160px]"
+                      className="text-sm font-semibold text-[#2D6A4F] truncate max-w-[160px]"
                       title={edge.target}
                     >
                       {truncate(edge.target)}
@@ -135,7 +135,7 @@ export default function FlaggedEdges({
                   {/* Risk badge */}
                   <div className="flex items-center gap-2 shrink-0">
                     {edge.cross_document && (
-                      <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-mono uppercase tracking-[0.1em] bg-[#D4AF37]/20 text-[#8B6914] border border-[#D4AF37]/40">
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-mono uppercase tracking-[0.1em] bg-[#C5A028]/20 text-[#8B6914] border border-[#C5A028]/40">
                         <Link2 size={9} />
                         Cross-doc
                       </span>
@@ -151,10 +151,10 @@ export default function FlaggedEdges({
 
                 {/* Plausibility bar + score */}
                 <div className="flex items-center gap-3">
-                  <span className="text-[9px] font-mono uppercase tracking-[0.12em] text-[#6B6B6B] shrink-0 w-20">
+                  <span className="text-[9px] font-mono uppercase tracking-[0.12em] text-[#737373] shrink-0 w-20">
                     Plausibility
                   </span>
-                  <div className="flex-1 h-2 bg-[#E8E4D9] rounded-full overflow-hidden border border-[#4A4A4A]/10">
+                  <div className="flex-1 h-2 bg-[#F5F5F3] rounded-full overflow-hidden border border-[#E5E5E3]/10">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${edge.plausibility_score * 100}%` }}
@@ -177,12 +177,12 @@ export default function FlaggedEdges({
                 {/* Source docs */}
                 {allDocs.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <FileText size={11} className="text-[#6B6B6B] shrink-0" />
+                    <FileText size={11} className="text-[#737373] shrink-0" />
                     {allDocs.map((doc) => (
                       <span
                         key={doc}
                         title={doc}
-                        className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-[#E8E4D9] text-[#4A4A4A] border border-[#4A4A4A]/20 truncate max-w-[140px]"
+                        className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-[#F5F5F3] text-[#525252] border border-[#E5E5E3]/20 truncate max-w-[140px]"
                       >
                         {truncate(doc, 22)}
                       </span>
@@ -192,7 +192,7 @@ export default function FlaggedEdges({
 
                 {/* Description */}
                 {edge.description && (
-                  <p className="text-[11px] text-[#6B6B6B] leading-relaxed italic border-t border-[#4A4A4A]/10 pt-2">
+                  <p className="text-[11px] text-[#737373] leading-relaxed italic border-t border-[#E5E5E3]/10 pt-2">
                     {edge.description}
                   </p>
                 )}

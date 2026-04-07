@@ -16,20 +16,20 @@ interface AuditOverviewProps {
 function integrityColor(pct: number): { text: string; bg: string; bar: string } {
   if (pct > 95)
     return {
-      text: "text-[#3A5A40]",
-      bg: "bg-[#3A5A40]/10 border-[#3A5A40]/30",
-      bar: "#3A5A40",
+      text: "text-[#2D6A4F]",
+      bg: "bg-[#2D6A4F]/10 border-[#2D6A4F]/30",
+      bar: "#2D6A4F",
     };
   if (pct > 85)
     return {
-      text: "text-[#D4AF37]",
-      bg: "bg-[#D4AF37]/10 border-[#D4AF37]/30",
-      bar: "#D4AF37",
+      text: "text-[#C5A028]",
+      bg: "bg-[#C5A028]/10 border-[#C5A028]/30",
+      bar: "#C5A028",
     };
   return {
-    text: "text-[#8B1A1A]",
-    bg: "bg-[#8B1A1A]/10 border-[#8B1A1A]/30",
-    bar: "#8B1A1A",
+    text: "text-[#7A1A1A]",
+    bg: "bg-[#7A1A1A]/10 border-[#7A1A1A]/30",
+    bar: "#7A1A1A",
   };
 }
 
@@ -52,16 +52,16 @@ export default function AuditOverview({ auditRun }: AuditOverviewProps) {
 
   const flaggedColor =
     total_flagged > 0
-      ? { text: "text-[#8B1A1A]", bg: "bg-[#8B1A1A]/10 border-[#8B1A1A]/30" }
-      : { text: "text-[#3A5A40]", bg: "bg-[#3A5A40]/10 border-[#3A5A40]/30" };
+      ? { text: "text-[#7A1A1A]", bg: "bg-[#7A1A1A]/10 border-[#7A1A1A]/30" }
+      : { text: "text-[#2D6A4F]", bg: "bg-[#2D6A4F]/10 border-[#2D6A4F]/30" };
 
   const cards = [
     {
       label: "Audited",
-      icon: <Activity size={16} className="text-[#D4AF37]" />,
+      icon: <Activity size={16} className="text-[#C5A028]" />,
       value: total_audited.toLocaleString(),
-      valueClass: "text-[#2B2B2B]",
-      bg: "bg-[#FCFAF2] border-[#4A4A4A]/30",
+      valueClass: "text-[#1A1A1A]",
+      bg: "bg-[#FFFFFF] border-[#E5E5E3]/30",
       sub: "relationships examined",
     },
     {
@@ -69,7 +69,7 @@ export default function AuditOverview({ auditRun }: AuditOverviewProps) {
       icon: <AlertTriangle size={16} className={flaggedColor.text} />,
       value: total_flagged.toLocaleString(),
       valueClass: flaggedColor.text,
-      bg: `bg-[#FCFAF2] border ${flaggedColor.bg}`,
+      bg: `bg-[#FFFFFF] border ${flaggedColor.bg}`,
       sub: total_flagged === 0 ? "none detected" : "below threshold",
     },
     {
@@ -77,32 +77,32 @@ export default function AuditOverview({ auditRun }: AuditOverviewProps) {
       icon: <Shield size={16} className={ic.text} />,
       value: `${integrityPct.toFixed(1)}%`,
       valueClass: ic.text,
-      bg: `bg-[#FCFAF2] border ${ic.bg}`,
+      bg: `bg-[#FFFFFF] border ${ic.bg}`,
       sub: "validated relationships",
       bar: { pct: integrityPct, color: ic.bar },
     },
     {
       label: "AUC-ROC",
-      icon: <Target size={16} className="text-[#6B6B6B]" />,
+      icon: <Target size={16} className="text-[#737373]" />,
       value: auc_roc !== null ? Number(auc_roc).toFixed(3) : "N/A",
-      valueClass: "text-[#2B2B2B]",
-      bg: "bg-[#FCFAF2] border-[#4A4A4A]/30",
+      valueClass: "text-[#1A1A1A]",
+      bg: "bg-[#FFFFFF] border-[#E5E5E3]/30",
       sub: "model discrimination",
     },
     {
       label: "MRR",
-      icon: <CheckCircle size={16} className="text-[#6B6B6B]" />,
+      icon: <CheckCircle size={16} className="text-[#737373]" />,
       value: mrr !== null ? Number(mrr).toFixed(3) : "N/A",
-      valueClass: "text-[#2B2B2B]",
-      bg: "bg-[#FCFAF2] border-[#4A4A4A]/30",
+      valueClass: "text-[#1A1A1A]",
+      bg: "bg-[#FFFFFF] border-[#E5E5E3]/30",
       sub: "mean reciprocal rank",
     },
     {
       label: "Threshold (τ)",
-      icon: <Sliders size={16} className="text-[#D4AF37]" />,
+      icon: <Sliders size={16} className="text-[#C5A028]" />,
       value: Number(threshold).toFixed(3),
-      valueClass: "text-[#D4AF37]",
-      bg: "bg-[#FCFAF2] border-[#D4AF37]/30",
+      valueClass: "text-[#C5A028]",
+      bg: "bg-[#FFFFFF] border-[#C5A028]/30",
       sub: "plausibility cutoff",
     },
   ];
@@ -118,14 +118,14 @@ export default function AuditOverview({ auditRun }: AuditOverviewProps) {
           key={card.label}
           custom={i}
           variants={cardVariants}
-          className={`relative bg-[#FCFAF2] border rounded-lg p-4 ${card.bg} flex flex-col gap-1.5`}
+          className={`relative bg-[#FFFFFF] border rounded-lg p-4 ${card.bg} flex flex-col gap-1.5`}
         >
           {/* Top row: label + icon */}
           <div className="flex items-center justify-between">
-            <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-[#6B6B6B]">
+            <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-[#737373]">
               {card.label}
             </span>
-            <div className="p-1 bg-[#F5F2E9] rounded border border-[#4A4A4A]/20">
+            <div className="p-1 bg-[#FAFAF8] rounded border border-[#E5E5E3]/20">
               {card.icon}
             </div>
           </div>
@@ -140,7 +140,7 @@ export default function AuditOverview({ auditRun }: AuditOverviewProps) {
 
           {/* Optional integrity bar */}
           {card.bar && (
-            <div className="h-1.5 w-full bg-[#E8E4D9] rounded-full overflow-hidden border border-[#4A4A4A]/10 mt-0.5">
+            <div className="h-1.5 w-full bg-[#F5F5F3] rounded-full overflow-hidden border border-[#E5E5E3]/10 mt-0.5">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${card.bar.pct}%` }}
@@ -152,7 +152,7 @@ export default function AuditOverview({ auditRun }: AuditOverviewProps) {
           )}
 
           {/* Subtext */}
-          <p className="text-[9px] font-mono uppercase tracking-[0.12em] text-[#6B6B6B] leading-tight">
+          <p className="text-[9px] font-mono uppercase tracking-[0.12em] text-[#737373] leading-tight">
             {card.sub}
           </p>
         </motion.div>

@@ -44,7 +44,7 @@ export function SkeletonSidebarCard() {
 export function SkeletonDocumentList() {
   return (
     <div className="card-raised overflow-hidden">
-      <div className="p-5 border-b border-[#4A4A4A]/20">
+      <div className="p-5 border-b border-[#E5E5E3]/20">
         <div className="flex justify-between items-center mb-4">
           <SkeletonLine className="w-36 skeleton-text-lg" />
           <SkeletonBlock className="w-24 h-8" />
@@ -54,7 +54,7 @@ export function SkeletonDocumentList() {
           <SkeletonBlock className="flex-1 h-10" />
         </div>
       </div>
-      <div className="divide-y divide-[#4A4A4A]/10">
+      <div className="divide-y divide-[#E5E5E3]/10">
         {[1, 2, 3].map((i) => (
           <div key={i} className="px-5 py-3.5 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -73,7 +73,7 @@ export function SkeletonDocumentList() {
 export function SkeletonDetectiveBoard() {
   return (
     <div className="space-y-6">
-      <div className="p-4 bg-[#8B1A1A]/5 border-l-4 border-[#E8E4D9] rounded-r-lg">
+      <div className="p-4 bg-[#7A1A1A]/5 border-l-4 border-[#F5F5F3] rounded-r-lg">
         <SkeletonLine className="w-20 mb-2" />
         <SkeletonLine className="skeleton-text-lg w-3/4" />
       </div>

@@ -23,19 +23,19 @@ const variantStyles: Record<
   { icon: React.ReactNode; confirmClass: string; accentClass: string }
 > = {
   danger: {
-    icon: <Trash2 size={24} className="text-[#8B1A1A]" />,
-    confirmClass: "bg-[#8B1A1A] hover:bg-[#6B1515] text-white border-[#8B1A1A]",
-    accentClass: "border-[#8B1A1A]/30 bg-[#8B1A1A]/5",
+    icon: <Trash2 size={24} className="text-[#7A1A1A]" />,
+    confirmClass: "bg-[#7A1A1A] hover:bg-[#6B1515] text-white border-[#7A1A1A]",
+    accentClass: "border-[#7A1A1A]/30 bg-[#7A1A1A]/5",
   },
   warning: {
-    icon: <AlertTriangle size={24} className="text-[#D4AF37]" />,
-    confirmClass: "bg-[#D4AF37] hover:bg-[#B8941F] text-[#2B2B2B] border-[#D4AF37]",
-    accentClass: "border-[#D4AF37]/30 bg-[#D4AF37]/5",
+    icon: <AlertTriangle size={24} className="text-[#C5A028]" />,
+    confirmClass: "bg-[#C5A028] hover:bg-[#A68A1E] text-[#1A1A1A] border-[#C5A028]",
+    accentClass: "border-[#C5A028]/30 bg-[#C5A028]/5",
   },
   default: {
-    icon: <AlertTriangle size={24} className="text-[#6B6B6B]" />,
-    confirmClass: "bg-[#4A4A4A] hover:bg-[#2B2B2B] text-white border-[#4A4A4A]",
-    accentClass: "border-[#4A4A4A]/30 bg-[#E8E4D9]",
+    icon: <AlertTriangle size={24} className="text-[#737373]" />,
+    confirmClass: "bg-[#525252] hover:bg-[#1A1A1A] text-white border-[#E5E5E3]",
+    accentClass: "border-[#E5E5E3]/30 bg-[#F5F5F3]",
   },
 };
 
@@ -107,7 +107,7 @@ export default function ConfirmModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={loading ? undefined : onCancel}
-            className="fixed inset-0 z-[200] bg-[#2B2B2B]/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[200] bg-[#1A1A1A]/50 backdrop-blur-sm"
             aria-hidden="true"
           />
           {/* Modal */}
@@ -123,8 +123,8 @@ export default function ConfirmModal({
             transition={{ type: "spring", damping: 25, stiffness: 350 }}
             className="fixed left-1/2 top-1/2 z-[201] w-full max-w-md -translate-x-1/2 -translate-y-1/2 px-4"
           >
-            <div className="graph-info-card bg-[#FCFAF2] border border-[#4A4A4A] rounded-lg shadow-2xl overflow-hidden">
-              <div className="h-1 w-full bg-linear-to-r from-[#D4AF37] via-[#B8941F] to-[#D4AF37]" />
+            <div className="graph-info-card bg-[#FFFFFF] border border-[#E5E5E3] rounded-lg shadow-2xl overflow-hidden">
+              <div className="h-1 w-full bg-linear-to-r from-[#C5A028] via-[#A68A1E] to-[#C5A028]" />
               <div className="p-5">
                 <div className="flex items-start gap-4">
                   <div
@@ -135,26 +135,26 @@ export default function ConfirmModal({
                   <div className="min-w-0 flex-1">
                     <h3
                       id="confirm-modal-title"
-                      className="text-lg font-bold text-[#2B2B2B]"
+                      className="text-lg font-bold text-[#1A1A1A]"
                       style={{ fontFamily: "EB Garamond, serif" }}
                     >
                       {title}
                     </h3>
-                    <p id="confirm-modal-message" className="mt-2 text-sm text-[#6B6B6B] leading-relaxed">
+                    <p id="confirm-modal-message" className="mt-2 text-sm text-[#737373] leading-relaxed">
                       {message}
                     </p>
                   </div>
                   <button
                     onClick={onCancel}
                     disabled={loading}
-                    className="shrink-0 rounded p-1.5 text-[#6B6B6B] hover:bg-[#E8E4D9] hover:text-[#2B2B2B] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
+                    className="shrink-0 rounded p-1.5 text-[#737373] hover:bg-[#F5F5F3] hover:text-[#1A1A1A] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A028]"
                     aria-label={`Close ${title} dialog`}
                   >
                     <X size={18} />
                   </button>
                 </div>
                 <div className="mt-6 flex items-center justify-between">
-                  <span className="text-[10px] text-[#6B6B6B] flex items-center gap-1">
+                  <span className="text-[10px] text-[#737373] flex items-center gap-1">
                     <span className="kbd-hint">Esc</span> to cancel
                   </span>
                   <div className="flex gap-3">
@@ -162,14 +162,14 @@ export default function ConfirmModal({
                     ref={cancelRef}
                     onClick={onCancel}
                     disabled={loading}
-                    className="rounded-md border border-[#4A4A4A] bg-transparent px-4 py-2 text-sm font-medium text-[#4A4A4A] hover:bg-[#E8E4D9] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
+                    className="rounded-md border border-[#E5E5E3] bg-transparent px-4 py-2 text-sm font-medium text-[#525252] hover:bg-[#F5F5F3] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A028]"
                   >
                     {cancelLabel}
                   </button>
                   <button
                     onClick={handleConfirm}
                     disabled={loading}
-                    className={`rounded-md border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] ${styles.confirmClass}`}
+                    className={`rounded-md border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A028] ${styles.confirmClass}`}
                   >
                     {loading ? "Processing..." : confirmLabel}
                   </button>

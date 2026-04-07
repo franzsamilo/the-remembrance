@@ -19,20 +19,20 @@ interface DocumentIntegrityProps {
 function integrityStyle(pct: number): { bar: string; text: string; badge: string } {
   if (pct > 95)
     return {
-      bar: "#3A5A40",
-      text: "text-[#3A5A40]",
-      badge: "bg-[#3A5A40]/10 text-[#3A5A40] border-[#3A5A40]/30",
+      bar: "#2D6A4F",
+      text: "text-[#2D6A4F]",
+      badge: "bg-[#2D6A4F]/10 text-[#2D6A4F] border-[#2D6A4F]/30",
     };
   if (pct > 85)
     return {
-      bar: "#D4AF37",
-      text: "text-[#D4AF37]",
-      badge: "bg-[#D4AF37]/10 text-[#D4AF37] border-[#D4AF37]/30",
+      bar: "#C5A028",
+      text: "text-[#C5A028]",
+      badge: "bg-[#C5A028]/10 text-[#C5A028] border-[#C5A028]/30",
     };
   return {
-    bar: "#8B1A1A",
-    text: "text-[#8B1A1A]",
-    badge: "bg-[#8B1A1A]/10 text-[#8B1A1A] border-[#8B1A1A]/30",
+    bar: "#7A1A1A",
+    text: "text-[#7A1A1A]",
+    badge: "bg-[#7A1A1A]/10 text-[#7A1A1A] border-[#7A1A1A]/30",
   };
 }
 
@@ -57,8 +57,8 @@ export default function DocumentIntegrity({
           onClick={() => onSelectDoc(null)}
           className={`shrink-0 px-3 py-1.5 rounded-md border text-[10px] font-mono uppercase tracking-[0.12em] transition-all ${
             selectedDoc === null
-              ? "bg-[#D4AF37] text-[#2B2B2B] border-[#D4AF37] shadow-sm"
-              : "bg-[#FCFAF2] text-[#6B6B6B] border-[#4A4A4A]/30 hover:border-[#D4AF37]/50 hover:text-[#2B2B2B]"
+              ? "bg-[#C5A028] text-[#1A1A1A] border-[#C5A028] shadow-sm"
+              : "bg-[#FFFFFF] text-[#737373] border-[#E5E5E3]/30 hover:border-[#C5A028]/50 hover:text-[#1A1A1A]"
           }`}
         >
           All Documents
@@ -72,8 +72,8 @@ export default function DocumentIntegrity({
               onClick={() => onSelectDoc(isSelected ? null : doc.document)}
               className={`shrink-0 px-3 py-1.5 rounded-md border text-[10px] font-mono uppercase tracking-[0.12em] transition-all max-w-[180px] truncate ${
                 isSelected
-                  ? "bg-[#D4AF37]/20 text-[#8B6914] border-[#D4AF37] shadow-sm"
-                  : "bg-[#FCFAF2] text-[#6B6B6B] border-[#4A4A4A]/30 hover:border-[#D4AF37]/50 hover:text-[#2B2B2B]"
+                  ? "bg-[#C5A028]/20 text-[#8B6914] border-[#C5A028] shadow-sm"
+                  : "bg-[#FFFFFF] text-[#737373] border-[#E5E5E3]/30 hover:border-[#C5A028]/50 hover:text-[#1A1A1A]"
               }`}
             >
               {truncateDoc(doc.document, 22)}
@@ -98,24 +98,24 @@ export default function DocumentIntegrity({
               transition={{ delay: i * 0.06, duration: 0.3, ease: "easeOut" }}
               onClick={() => onSelectDoc(isSelected ? null : doc.document)}
               title={doc.document}
-              className={`shrink-0 w-52 text-left bg-[#FCFAF2] rounded-lg p-4 border transition-all cursor-pointer flex flex-col gap-2 ${
+              className={`shrink-0 w-52 text-left bg-[#FFFFFF] rounded-lg p-4 border transition-all cursor-pointer flex flex-col gap-2 ${
                 isSelected
-                  ? "border-[#D4AF37] shadow-md shadow-[#D4AF37]/10"
-                  : "border-[#4A4A4A]/30 hover:border-[#D4AF37]/40 hover:shadow-sm"
+                  ? "border-[#C5A028] shadow-md shadow-[#C5A028]/10"
+                  : "border-[#E5E5E3]/30 hover:border-[#C5A028]/40 hover:shadow-sm"
               }`}
             >
               {/* Header */}
               <div className="flex items-start justify-between gap-1.5">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <FileText size={13} className="text-[#6B6B6B] shrink-0" />
-                  <span className="text-[11px] font-semibold text-[#2B2B2B] truncate leading-tight">
+                  <FileText size={13} className="text-[#737373] shrink-0" />
+                  <span className="text-[11px] font-semibold text-[#1A1A1A] truncate leading-tight">
                     {truncateDoc(doc.document)}
                   </span>
                 </div>
                 {doc.flagged > 0 ? (
-                  <AlertTriangle size={13} className="text-[#8B1A1A] shrink-0" />
+                  <AlertTriangle size={13} className="text-[#7A1A1A] shrink-0" />
                 ) : (
-                  <CheckCircle size={13} className="text-[#3A5A40] shrink-0" />
+                  <CheckCircle size={13} className="text-[#2D6A4F] shrink-0" />
                 )}
               </div>
 
@@ -124,13 +124,13 @@ export default function DocumentIntegrity({
                 <span className={`text-xl font-bold font-mono ${style.text}`}>
                   {intPct.toFixed(1)}%
                 </span>
-                <span className="text-[9px] font-mono uppercase tracking-[0.12em] text-[#6B6B6B]">
+                <span className="text-[9px] font-mono uppercase tracking-[0.12em] text-[#737373]">
                   integrity
                 </span>
               </div>
 
               {/* Progress bar */}
-              <div className="h-1.5 w-full bg-[#E8E4D9] rounded-full overflow-hidden border border-[#4A4A4A]/10">
+              <div className="h-1.5 w-full bg-[#F5F5F3] rounded-full overflow-hidden border border-[#E5E5E3]/10">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${intPct}%` }}
@@ -141,7 +141,7 @@ export default function DocumentIntegrity({
               </div>
 
               {/* Validated text */}
-              <p className="text-[10px] text-[#6B6B6B] font-mono">
+              <p className="text-[10px] text-[#737373] font-mono">
                 {validated} of {doc.total_edges} validated
               </p>
 
@@ -156,7 +156,7 @@ export default function DocumentIntegrity({
 
               {/* Selected indicator */}
               {isSelected && (
-                <span className="self-start px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-[0.1em] bg-[#D4AF37]/20 text-[#8B6914] border border-[#D4AF37]/40">
+                <span className="self-start px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-[0.1em] bg-[#C5A028]/20 text-[#8B6914] border border-[#C5A028]/40">
                   Filtering
                 </span>
               )}
@@ -165,7 +165,7 @@ export default function DocumentIntegrity({
         })}
 
         {documents.length === 0 && (
-          <p className="text-sm text-[#6B6B6B] italic py-4 px-2">
+          <p className="text-sm text-[#737373] italic py-4 px-2">
             No document data available.
           </p>
         )}

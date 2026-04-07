@@ -48,16 +48,16 @@ export default function AuditFindingsCard() {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="border border-[#4A4A4A]/30 rounded-lg bg-[#FCFAF2] p-4"
+        className="border border-[#E5E5E3]/30 rounded-lg bg-[#FFFFFF] p-4"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Shield size={18} className="text-[#6B6B6B]" />
-            <span className="text-sm font-semibold text-[#2B2B2B]">Detective Findings</span>
+            <Shield size={18} className="text-[#737373]" />
+            <span className="text-sm font-semibold text-[#1A1A1A]">Detective Findings</span>
           </div>
-          <span className="text-xs text-[#6B6B6B]">No audit yet</span>
+          <span className="text-xs text-[#737373]">No audit yet</span>
         </div>
-        <p className="text-xs text-[#6B6B6B] mt-2">
+        <p className="text-xs text-[#737373] mt-2">
           Run the GNN Audit from the pipeline to detect anomalies in your knowledge graph.
         </p>
       </motion.div>
@@ -67,11 +67,11 @@ export default function AuditFindingsCard() {
   const hasFlagged = summary.total_flagged > 0;
   const integrityPct = Math.round(summary.integrity * 100);
   const integrityColor =
-    integrityPct >= 95 ? "text-[#3A5A40]" : integrityPct >= 85 ? "text-[#B8941F]" : "text-[#8B1A1A]";
+    integrityPct >= 95 ? "text-[#2D6A4F]" : integrityPct >= 85 ? "text-[#A68A1E]" : "text-[#7A1A1A]";
   const integrityLabel =
     integrityPct >= 95 ? "High" : integrityPct >= 85 ? "Moderate" : "Low";
-  const borderColor = hasFlagged ? "border-[#8B1A1A]/40" : "border-[#3A5A40]/40";
-  const bgTint = hasFlagged ? "bg-[#8B1A1A]/[0.03]" : "bg-[#3A5A40]/[0.03]";
+  const borderColor = hasFlagged ? "border-[#7A1A1A]/40" : "border-[#2D6A4F]/40";
+  const bgTint = hasFlagged ? "bg-[#7A1A1A]/[0.03]" : "bg-[#2D6A4F]/[0.03]";
 
   return (
     <motion.div
@@ -85,13 +85,13 @@ export default function AuditFindingsCard() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {hasFlagged ? (
-              <AlertTriangle size={18} className="text-[#8B1A1A]" />
+              <AlertTriangle size={18} className="text-[#7A1A1A]" />
             ) : (
-              <CheckCircle size={18} className="text-[#3A5A40]" />
+              <CheckCircle size={18} className="text-[#2D6A4F]" />
             )}
-            <span className="text-sm font-semibold text-[#2B2B2B]">Detective Findings</span>
+            <span className="text-sm font-semibold text-[#1A1A1A]">Detective Findings</span>
           </div>
-          <div className="flex items-center gap-1 text-xs text-[#6B6B6B] group-hover:text-[#D4AF37] transition-colors">
+          <div className="flex items-center gap-1 text-xs text-[#737373] group-hover:text-[#C5A028] transition-colors">
             View Full Report
             <ArrowRight size={14} />
           </div>
@@ -99,17 +99,17 @@ export default function AuditFindingsCard() {
 
         <div className="flex items-center gap-6 mt-3">
           <div>
-            <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-[#6B6B6B]">Audited</span>
-            <p className="text-lg font-bold text-[#2B2B2B]">{summary.total_audited}</p>
+            <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-[#737373]">Audited</span>
+            <p className="text-lg font-bold text-[#1A1A1A]">{summary.total_audited}</p>
           </div>
           <div>
-            <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-[#6B6B6B]">Flagged</span>
-            <p className={`text-lg font-bold ${hasFlagged ? "text-[#8B1A1A]" : "text-[#3A5A40]"}`}>
+            <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-[#737373]">Flagged</span>
+            <p className={`text-lg font-bold ${hasFlagged ? "text-[#7A1A1A]" : "text-[#2D6A4F]"}`}>
               {summary.total_flagged}
             </p>
           </div>
           <div>
-            <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-[#6B6B6B]">Integrity</span>
+            <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-[#737373]">Integrity</span>
             <p className={`text-lg font-bold ${integrityColor}`}>
               {integrityPct}%
               <span className="text-[9px] font-normal ml-1">({integrityLabel})</span>
@@ -118,13 +118,13 @@ export default function AuditFindingsCard() {
         </div>
 
         {hasFlagged && (
-          <p className="text-xs text-[#8B1A1A]/80 mt-2">
+          <p className="text-xs text-[#7A1A1A]/80 mt-2">
             {summary.total_flagged} relationship{summary.total_flagged !== 1 ? "s" : ""} flagged
             as suspicious — review the audit report for details.
           </p>
         )}
         {!hasFlagged && (
-          <p className="text-xs text-[#3A5A40]/80 mt-2">
+          <p className="text-xs text-[#2D6A4F]/80 mt-2">
             All relationships passed integrity validation. No anomalies detected.
           </p>
         )}

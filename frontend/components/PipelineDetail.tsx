@@ -81,15 +81,15 @@ function MetricPill({ label, value }: MetricPillProps) {
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[#4A4A4A]/30 bg-[#F5F2E9] text-xs transition-colors duration-300"
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[#E5E5E3]/30 bg-[#FAFAF8] text-xs transition-colors duration-300"
       style={
         flash
-          ? { borderColor: "#D4AF37", backgroundColor: "rgba(212,175,55,0.15)" }
+          ? { borderColor: "#C5A028", backgroundColor: "rgba(197,160,40,0.15)" }
           : {}
       }
     >
-      <span className="text-[#6B6B6B]">{label}</span>
-      <span className="font-bold text-[#2B2B2B]">{value}</span>
+      <span className="text-[#737373]">{label}</span>
+      <span className="font-bold text-[#1A1A1A]">{value}</span>
     </span>
   );
 }
@@ -116,14 +116,14 @@ export default function PipelineDetail({
         className="text-xs font-mono px-2 py-0.5 rounded-sm border"
         style={{
           color: "#8B6914",
-          borderColor: "rgba(212,175,55,0.5)",
-          backgroundColor: "rgba(212,175,55,0.12)",
+          borderColor: "rgba(197,160,40,0.5)",
+          backgroundColor: "rgba(197,160,40,0.12)",
         }}
       >
         <RunningDots />
       </span>
     ) : status === "ready" ? (
-      <span className="text-xs font-mono px-2 py-0.5 rounded-sm border border-[#3A5A40]/40 bg-[#3A5A40]/10 text-[#3A5A40]">
+      <span className="text-xs font-mono px-2 py-0.5 rounded-sm border border-[#2D6A4F]/40 bg-[#2D6A4F]/10 text-[#2D6A4F]">
         Ready
       </span>
     ) : status === "error" ? (
@@ -131,7 +131,7 @@ export default function PipelineDetail({
         Error
       </span>
     ) : (
-      <span className="text-xs font-mono px-2 py-0.5 rounded-sm border border-[#4A4A4A]/30 bg-[#E8E4D9] text-[#6B6B6B]">
+      <span className="text-xs font-mono px-2 py-0.5 rounded-sm border border-[#E5E5E3]/30 bg-[#F5F5F3] text-[#737373]">
         Waiting
       </span>
     );
@@ -145,7 +145,7 @@ export default function PipelineDetail({
         exit={{ opacity: 0, y: -4 }}
         transition={{ duration: 0.2, ease: "easeOut" }}
         className={[
-          "relative overflow-hidden rounded-sm border-2 bg-[#FCFAF2]",
+          "relative overflow-hidden rounded-sm border-2 bg-[#FFFFFF]",
           colors.border,
         ].join(" ")}
       >
@@ -181,7 +181,7 @@ export default function PipelineDetail({
               >
                 Stage {stage.order} &middot; {stage.phase}
               </p>
-              <h3 className="text-lg font-semibold text-[#2B2B2B]">
+              <h3 className="text-lg font-semibold text-[#1A1A1A]">
                 {stage.name}
               </h3>
             </div>
@@ -193,10 +193,10 @@ export default function PipelineDetail({
             {/* 1. Model */}
             <div>
               <SectionLabel color={phaseText}>Model</SectionLabel>
-              <p className="text-sm font-semibold text-[#2B2B2B]">
+              <p className="text-sm font-semibold text-[#1A1A1A]">
                 {stage.model.name}
               </p>
-              <p className="text-xs text-[#6B6B6B] mt-0.5">
+              <p className="text-xs text-[#737373] mt-0.5">
                 {stage.model.description}
               </p>
             </div>
@@ -204,11 +204,11 @@ export default function PipelineDetail({
             {/* 2. Input / Output */}
             <div>
               <SectionLabel color={phaseText}>Input / Output</SectionLabel>
-              <p className="text-sm text-[#2B2B2B]">
-                <span className="text-[#6B6B6B]">In:</span> {stage.input}
+              <p className="text-sm text-[#1A1A1A]">
+                <span className="text-[#737373]">In:</span> {stage.input}
               </p>
-              <p className="text-sm text-[#2B2B2B] mt-0.5">
-                <span className="text-[#6B6B6B]">Out:</span> {stage.output}
+              <p className="text-sm text-[#1A1A1A] mt-0.5">
+                <span className="text-[#737373]">Out:</span> {stage.output}
               </p>
             </div>
 
@@ -218,8 +218,8 @@ export default function PipelineDetail({
               <dl className="space-y-0.5">
                 {Object.entries(stage.params).map(([k, v]) => (
                   <div key={k} className="flex items-baseline gap-1.5">
-                    <dt className="text-xs text-[#6B6B6B] shrink-0">{k}:</dt>
-                    <dd className="text-xs text-[#2B2B2B] font-mono truncate">
+                    <dt className="text-xs text-[#737373] shrink-0">{k}:</dt>
+                    <dd className="text-xs text-[#1A1A1A] font-mono truncate">
                       {v}
                     </dd>
                   </div>
@@ -230,7 +230,7 @@ export default function PipelineDetail({
             {/* 4. Why This Approach */}
             <div>
               <SectionLabel color={phaseText}>Why This Approach</SectionLabel>
-              <p className="text-sm leading-relaxed text-[#2B2B2B]">
+              <p className="text-sm leading-relaxed text-[#1A1A1A]">
                 {stage.why}
               </p>
             </div>
@@ -238,7 +238,7 @@ export default function PipelineDetail({
 
           {/* Bottom row: Live Metrics */}
           {metrics.length > 0 && (
-            <div className="border-t border-[#4A4A4A]/20 pt-3">
+            <div className="border-t border-[#E5E5E3]/20 pt-3">
               <SectionLabel color={phaseText}>Live Metrics</SectionLabel>
               <div className="flex flex-wrap gap-2">
                 {metrics.map((m) => (

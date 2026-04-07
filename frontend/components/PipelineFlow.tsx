@@ -21,28 +21,28 @@ export default function PipelineFlow({ stats, currentTask }: PipelineFlowProps) 
   const selectedStatus = selectedStage.getStatus(currentTask, graphState);
 
   return (
-    <div className="border border-[#4A4A4A]/30 rounded-lg bg-[#FCFAF2] overflow-hidden">
+    <div className="border border-[#E5E5E3]/30 rounded-lg bg-[#FFFFFF] overflow-hidden">
       {/* Collapsible header */}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between gap-3 px-5 py-3.5 text-left hover:bg-[#E8E4D9]/40 transition-colors"
+        className="w-full flex items-center justify-between gap-3 px-5 py-3.5 text-left hover:bg-[#F5F5F3]/40 transition-colors"
         aria-expanded={expanded}
         aria-controls="pipeline-flow-content"
       >
         <div className="flex items-center gap-2">
-          <Workflow size={18} className="text-[#D4AF37]" />
-          <span className="text-sm font-semibold text-[#2B2B2B]">
+          <Workflow size={18} className="text-[#C5A028]" />
+          <span className="text-sm font-semibold text-[#1A1A1A]">
             System Pipeline
           </span>
-          <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-[#6B6B6B]">
+          <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-[#737373]">
             Feature · Training · Inference
           </span>
         </div>
         {expanded ? (
-          <ChevronUp size={18} className="text-[#6B6B6B]" />
+          <ChevronUp size={18} className="text-[#737373]" />
         ) : (
-          <ChevronDown size={18} className="text-[#6B6B6B]" />
+          <ChevronDown size={18} className="text-[#737373]" />
         )}
       </button>
 

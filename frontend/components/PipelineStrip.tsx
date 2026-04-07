@@ -28,9 +28,9 @@ interface PipelineStripProps {
 const PHASE_ORDER: Phase[] = ["feature", "training", "inference"];
 
 const PHASE_HEX: Record<Phase, string> = {
-  feature: "#3A5A40",
-  training: "#D4AF37",
-  inference: "#8B1A1A",
+  feature: "#2D6A4F",
+  training: "#C5A028",
+  inference: "#7A1A1A",
 };
 
 const PHASE_DISPLAY: Record<Phase, string> = {
@@ -47,15 +47,15 @@ function StatusDot({ status }: { status: StageStatus }) {
   if (status === "active") {
     return (
       <span className="relative flex h-2.5 w-2.5">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75" />
-        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#D4AF37]" />
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#C5A028] opacity-75" />
+        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#C5A028]" />
       </span>
     );
   }
   const colorMap: Record<StageStatus, string> = {
-    ready: "bg-[#3A5A40]",
-    active: "bg-[#D4AF37]",
-    waiting: "bg-[#4A4A4A]/40",
+    ready: "bg-[#2D6A4F]",
+    active: "bg-[#C5A028]",
+    waiting: "bg-[#525252]/40",
     error: "bg-red-600",
   };
   return (
@@ -159,12 +159,12 @@ function StageNode({ stage, status, selected, onSelect }: StageNodeProps) {
       }
       className={[
         "relative flex flex-col items-start gap-0.5 px-3 py-2 rounded-sm",
-        "border bg-[#FCFAF2] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]",
+        "border bg-[#FFFFFF] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C5A028]",
         selected
           ? `border-2 ${phaseColors.border} shadow-sm`
-          : "border-[#4A4A4A]/30 hover:border-[#4A4A4A]/60",
+          : "border-[#E5E5E3]/30 hover:border-[#E5E5E3]/60",
         isActive
-          ? "shadow-[0_0_10px_rgba(212,175,55,0.45)]"
+          ? "shadow-[0_0_10px_rgba(197,160,40,0.45)]"
           : "",
       ]
         .filter(Boolean)
@@ -192,18 +192,18 @@ function StageNode({ stage, status, selected, onSelect }: StageNodeProps) {
       {/* Header row: status dot + order */}
       <span className="flex items-center gap-1.5 w-full">
         <StatusDot status={status} />
-        <span className="text-[10px] font-mono text-[#6B6B6B] ml-auto">
+        <span className="text-[10px] font-mono text-[#737373] ml-auto">
           {stage.order}
         </span>
       </span>
 
       {/* Stage name */}
-      <span className="text-xs font-semibold text-[#2B2B2B] leading-tight text-left">
+      <span className="text-xs font-semibold text-[#1A1A1A] leading-tight text-left">
         {stage.name}
       </span>
 
       {/* Model name */}
-      <span className="text-[10px] text-[#6B6B6B] leading-tight text-left">
+      <span className="text-[10px] text-[#737373] leading-tight text-left">
         {stage.model.name}
       </span>
     </motion.button>
@@ -251,7 +251,7 @@ function PhaseSection({
 
         {/* Bordered group wrapper */}
         <div
-          className={`flex items-center gap-1.5 px-2 py-1.5 rounded-sm border ${colors.border} border-opacity-40 bg-[#F5F2E9]/60`}
+          className={`flex items-center gap-1.5 px-2 py-1.5 rounded-sm border ${colors.border} border-opacity-40 bg-[#FAFAF8]/60`}
         >
           {stages.map((stage, idx) => {
             const status = stage.getStatus(currentTask, graphState);
@@ -278,7 +278,7 @@ function PhaseSection({
       {/* Inter-phase arrow */}
       {!isLast && (
         <div className="flex flex-col justify-end pb-[9px] px-1">
-          <ArrowConnector active={false} color="#D4AF37" />
+          <ArrowConnector active={false} color="#C5A028" />
         </div>
       )}
     </div>
@@ -318,7 +318,7 @@ function MobilePhaseBlock({
         {PHASE_DISPLAY[phase]}
       </span>
       <div
-        className={`flex flex-wrap gap-2 p-2 rounded-sm border ${colors.border} border-opacity-40 bg-[#F5F2E9]/60`}
+        className={`flex flex-wrap gap-2 p-2 rounded-sm border ${colors.border} border-opacity-40 bg-[#FAFAF8]/60`}
       >
         {stages.map((stage) => {
           const status = stage.getStatus(currentTask, graphState);

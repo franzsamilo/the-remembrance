@@ -555,7 +555,7 @@ export default function KnowledgeGraph({
         return {
           r: (isHovered ? 28 : 24) * scale,
           fill: "var(--gilded-gold)",
-          stroke: "#B8941F",
+          stroke: "#A68A1E",
           strokeWidth: 2.5,
           className: "graph-node-query",
         };
@@ -590,7 +590,7 @@ export default function KnowledgeGraph({
     >
       <div
         ref={containerRef}
-        className="relative w-full bg-[#F5F2E9]/60 border border-[#4A4A4A]/50 rounded-lg overflow-hidden"
+        className="relative w-full bg-[#FAFAF8]/60 border border-[#E5E5E3]/50 rounded-lg overflow-hidden"
         style={{ minHeight: large ? 420 : 350, height: "100%", cursor: isPanning ? "grabbing" : dragNode ? "grabbing" : "default" }}
         onClick={closeCard}
         onWheel={handleWheel}
@@ -625,7 +625,7 @@ export default function KnowledgeGraph({
               refY="3"
               orient="auto"
             >
-              <polygon points="0 0, 8 3, 0 6" fill="#D4AF37" opacity="0.7" />
+              <polygon points="0 0, 8 3, 0 6" fill="#C5A028" opacity="0.7" />
             </marker>
             <marker
               id="arrowheadHover"
@@ -635,7 +635,7 @@ export default function KnowledgeGraph({
               refY="3"
               orient="auto"
             >
-              <polygon points="0 0, 8 3, 0 6" fill="#D4AF37" />
+              <polygon points="0 0, 8 3, 0 6" fill="#C5A028" />
             </marker>
           </defs>
 
@@ -693,11 +693,11 @@ export default function KnowledgeGraph({
                       ? "rgba(212,175,55,0.15)"
                       : edge.cross_document
                       ? isHovered
-                        ? "#D4AF37"
+                        ? "#C5A028"
                         : "rgba(212,175,55,0.7)"
                       : isHovered
-                      ? "#D4AF37"
-                      : "rgba(74,74,74,0.4)"
+                      ? "#C5A028"
+                      : "rgba(82,82,82,0.4)"
                   }
                   strokeWidth={isQueryEdge ? 1 : isHovered ? 2.5 : edge.cross_document ? 2 : 1.5}
                   strokeDasharray={isQueryEdge || edge.cross_document ? "6,4" : "none"}
@@ -735,7 +735,7 @@ export default function KnowledgeGraph({
                       x={mx}
                       y={my - 6}
                       textAnchor="middle"
-                      className="fill-[#6B6B6B] text-[8px] pointer-events-none select-none"
+                      className="fill-[#737373] text-[8px] pointer-events-none select-none"
                       fontFamily="JetBrains Mono, monospace"
                       opacity={isHovered ? 1 : 0.7}
                     >
@@ -813,10 +813,10 @@ export default function KnowledgeGraph({
                   fontSize={node.type === "query" ? (large ? 13 : 11) : (large ? 11 : 10)}
                   fill={
                     node.type === "query"
-                      ? "#D4AF37"
+                      ? "#C5A028"
                       : isHovered
-                      ? "#2B2B2B"
-                      : "#4A4A4A"
+                      ? "#1A1A1A"
+                      : "#525252"
                   }
                 >
                   {node.name.length > (large ? 24 : 20)
@@ -830,7 +830,7 @@ export default function KnowledgeGraph({
                   textAnchor="middle"
                   fontFamily="system-ui"
                   fontSize={node.type === "query" ? 14 : 11}
-                  fill="#FCFAF2"
+                  fill="#FFFFFF"
                   className="pointer-events-none select-none"
                 >
                   {node.type === "query" ? "?" : node.type === "lead" ? "◇" : "●"}
@@ -841,37 +841,46 @@ export default function KnowledgeGraph({
           </g>
         </svg>
 
+        {/* Zoom reset button */}
+        <button
+          onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
+          className="absolute top-2 right-2 px-2 py-1 bg-white border border-[#E5E5E3] rounded text-[#737373] hover:text-[#1A1A1A] text-xs font-mono z-10"
+          title="Reset zoom"
+        >
+          Reset
+        </button>
+
         {/* Legend — more prominent when large */}
         <div className={`absolute bottom-3 left-3 right-3 flex flex-wrap items-center gap-4 z-20 ${large ? "gap-6" : ""}`}>
           <div className="flex items-center gap-2">
-            <div className={`rounded-full bg-[#D4AF37] shadow-sm ${large ? "w-4 h-4" : "w-3 h-3"}`} />
-            <span className={`font-mono text-[#6B6B6B] uppercase tracking-wider ${large ? "text-xs" : "text-[9px]"}`}>
+            <div className={`rounded-full bg-[#C5A028] shadow-sm ${large ? "w-4 h-4" : "w-3 h-3"}`} />
+            <span className={`font-mono text-[#737373] uppercase tracking-wider ${large ? "text-xs" : "text-[9px]"}`}>
               Your question
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <div className={`rounded-full bg-[#8B1A1A] shadow-sm ${large ? "w-4 h-4" : "w-3 h-3"}`} />
-            <span className={`font-mono text-[#6B6B6B] uppercase tracking-wider ${large ? "text-xs" : "text-[9px]"}`}>
+            <div className={`rounded-full bg-[#7A1A1A] shadow-sm ${large ? "w-4 h-4" : "w-3 h-3"}`} />
+            <span className={`font-mono text-[#737373] uppercase tracking-wider ${large ? "text-xs" : "text-[9px]"}`}>
               Evidence
             </span>
           </div>
           {safeLeads.length > 0 && (
             <div className="flex items-center gap-2">
-              <div className={`rounded-full bg-[#3A5A40] shadow-sm ${large ? "w-4 h-4" : "w-3 h-3"}`} />
-              <span className={`font-mono text-[#6B6B6B] uppercase tracking-wider ${large ? "text-xs" : "text-[9px]"}`}>
+              <div className={`rounded-full bg-[#2D6A4F] shadow-sm ${large ? "w-4 h-4" : "w-3 h-3"}`} />
+              <span className={`font-mono text-[#737373] uppercase tracking-wider ${large ? "text-xs" : "text-[9px]"}`}>
                 Leads
               </span>
             </div>
           )}
           {safeTriplets.some((t) => t.cross_document) && (
             <div className="flex items-center gap-2">
-              <div className={`${large ? "w-8" : "w-6"} h-0.5 rounded`} style={{ borderBottom: "2px dashed #D4AF37" }} />
-              <span className={`font-mono text-[#6B6B6B] uppercase tracking-wider ${large ? "text-xs" : "text-[9px]"}`}>
+              <div className={`${large ? "w-8" : "w-6"} h-0.5 rounded`} style={{ borderBottom: "2px dashed #C5A028" }} />
+              <span className={`font-mono text-[#737373] uppercase tracking-wider ${large ? "text-xs" : "text-[9px]"}`}>
                 Cross-document
               </span>
             </div>
           )}
-          <span className={`text-[#6B6B6B] italic ml-auto ${large ? "text-xs" : "text-[9px]"}`}>
+          <span className={`text-[#737373] italic ml-auto ${large ? "text-xs" : "text-[9px]"}`}>
             Click any node or line for details
           </span>
         </div>
