@@ -29,6 +29,16 @@ import dataclasses
 @dataclasses.dataclass
 class _SystemState:
     status: str = "Idle"
+    stage_timings: dict = dataclasses.field(default_factory=dict)
+    _stage_start: float = 0.0
+
+    def start_stage(self, stage: str):
+        self._stage_start = time.time()
+
+    def end_stage(self, stage: str):
+        if self._stage_start > 0:
+            self.stage_timings[stage] = round(time.time() - self._stage_start, 1)
+            self._stage_start = 0.0
 
 _system_state = _SystemState()
 
@@ -296,6 +306,7 @@ async def get_stats():
                     audit_result["latest_auc_roc"] if audit_result else None,
                     audit_result["latest_mrr"] if audit_result else None,
                 ),
+                "stage_timings": _system_state.stage_timings,
             }
             logger.info(f"Stats retrieved: {stats['nodes']} nodes, {stats['relationships']} rels, task: {_system_state.status}")
             return stats
@@ -376,8 +387,10 @@ async def trigger_ingestion(background_tasks: BackgroundTasks):
     async def run_pipeline():
         try:
             _system_state.status = "Extracting Concepts..."
+            _system_state.start_stage("ingest")
             logger.info("Starting background ingestion pipeline...")
             manifest = await process_documents()
+            _system_state.end_stage("ingest")
 
             if not manifest or manifest.get("documents_processed", 0) == 0:
                 _system_state.status = "Idle"
@@ -385,8 +398,10 @@ async def trigger_ingestion(background_tasks: BackgroundTasks):
                 return
 
             _system_state.status = "Embedding Nodes..."
+            _system_state.start_stage("embed")
             logger.info("Ingestion complete. Starting embedding cold-start...")
             await embed_nodes()
+            _system_state.end_stage("embed")
 
             _system_state.status = "Idle"
             logger.info(
@@ -487,11 +502,15 @@ async def trigger_audit(background_tasks: BackgroundTasks):
     def run_gnn_audit_then_eval():
         try:
             _system_state.status = "Running GNN Audit..."
+            _system_state.start_stage("audit")
             logger.info("Starting GNN Topological Audit...")
             run_audit()
+            _system_state.end_stage("audit")
             logger.info("Audit complete. Running grounding/faithfulness evaluation...")
             _system_state.status = "Running Evaluation..."
+            _system_state.start_stage("evaluate")
             asyncio.run(run_grounding_evaluation())
+            _system_state.end_stage("evaluate")
             _system_state.status = "Idle"
             logger.info("Evaluation complete.")
         except Exception as e:
