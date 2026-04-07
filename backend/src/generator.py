@@ -16,6 +16,7 @@ class DiscoveryGenerator:
     async def generate_answer(self, query, explain: bool = False):
         """
         Generates an auditable answer using the Synthesis Layer.
+        Returns filtered_triplets for UI transparency.
         """
         # 1. Retrieve Subgraph Context (Triples) + Discovery Leads
         _, triplets, leads = self.retriever.retrieve(query)
@@ -25,6 +26,12 @@ class DiscoveryGenerator:
             for triplet in triplets
             if triplet.get("audit") is not None and triplet.get("audit_status") in validated_statuses
         ]
+        # Track what was filtered out
+        filtered_triplets = [
+            triplet
+            for triplet in triplets
+            if triplet not in validated_triplets
+        ]
         # Fallback: if no validated triplets (e.g. unaudited graph), use all with audit score >= threshold
         if not validated_triplets and triplets:
             min_score = Config.GROUNDING_MIN_SCORE
@@ -32,30 +39,29 @@ class DiscoveryGenerator:
                 t for t in triplets
                 if t.get("audit") is not None and (t.get("audit") or 0) >= min_score
             ]
+            filtered_triplets = [t for t in triplets if t not in validated_triplets]
+
+        # Grounding error: no validated triplets at all
         if not validated_triplets:
-            validated_triplets = triplets  # last resort: use all retrieved
+            lead_objects = self._normalize_leads(leads)
+            return {
+                "narrative_text": None,
+                "grounding_error": True,
+                "message": "No validated evidence found. The system refuses to generate an unsupported answer.",
+                "triplets": [],
+                "filtered_triplets": filtered_triplets,
+                "leads": lead_objects,
+                "context_summary": "",
+                "suggested_actions": [],
+            }
+
         context = "\n".join(
             f"({t['source']})-[{t['relation']}]->({t['target']})"
             for t in validated_triplets
         )
 
-        # Normalize leads into structured objects
-        lead_objects = []
-        for lead in leads:
-            if not lead:
-                continue
-            if ":" in lead:
-                name, desc = lead.split(":", 1)
-                lead_objects.append({
-                    "name": name.strip(),
-                    "description": desc.strip()
-                })
-            else:
-                lead_objects.append({
-                    "name": lead.strip(),
-                    "description": None
-                })
-        
+        lead_objects = self._normalize_leads(leads)
+
         # 2. Synthesis: Convert Triples + Leads to Auditable Narrative
         narrative_package = await generate_narrative_response(
             query,
@@ -65,7 +71,6 @@ class DiscoveryGenerator:
         )
 
         if explain:
-            # Index explanations for quick merge
             triplet_explanations = narrative_package.get("triplet_explanations", [])
             explanation_map = {}
             for item in triplet_explanations:
@@ -77,21 +82,34 @@ class DiscoveryGenerator:
                 item.get("name"): item.get("explanation") for item in lead_explanations
             }
 
-            # Attach explanations to triplets/leads
             for t in validated_triplets:
                 key = (t.get("source"), t.get("relation"), t.get("target"))
                 t["explanation"] = explanation_map.get(key)
 
             for lead in lead_objects:
                 lead["explanation"] = lead_explanation_map.get(lead.get("name"))
-        
+
         return {
             "narrative_text": narrative_package.get("narrative_text", ""),
             "triplets": validated_triplets,
+            "filtered_triplets": filtered_triplets,
             "leads": lead_objects,
             "context_summary": context,
             "suggested_actions": narrative_package.get("suggested_actions", []),
         }
+
+    def _normalize_leads(self, leads):
+        """Convert raw lead strings into structured objects."""
+        lead_objects = []
+        for lead in leads:
+            if not lead:
+                continue
+            if ":" in lead:
+                name, desc = lead.split(":", 1)
+                lead_objects.append({"name": name.strip(), "description": desc.strip()})
+            else:
+                lead_objects.append({"name": lead.strip(), "description": None})
+        return lead_objects
 
     async def generate_answer_prompt_only(self, query: str):
         """

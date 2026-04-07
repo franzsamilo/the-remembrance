@@ -436,23 +436,27 @@ class ChatRequest(BaseModel):
     explain: bool = False
     mode: Literal["graph", "prompt_only"] = "graph"
 
-GROUNDING_ERROR_RESPONSE = {
-    "narrative_text": "Grounding Error: I cannot answer this because there is no validated evidence in the Knowledge Graph.",
-    "triplets": [],
-    "leads": [],
-    "context_summary": "",
-    "grounding_status": "FAILED - No Validated Triples Found",
-}
-
 def _is_grounding_error(result: dict) -> bool:
-    """True if the result has no validated evidence to support an answer."""
-    triplets = result.get("triplets") or []
-    return len(triplets) == 0
+    """True if the generator returned a structured grounding error."""
+    return result.get("grounding_error", False)
 
 def _chat_result_to_response(result: dict, grounding_status: str = "OK - Local Graph") -> dict:
     """Build chat response dict from generator result."""
     result["grounding_status"] = grounding_status
     return result
+
+def _grounding_error_response(result: dict) -> dict:
+    """Build grounding error response preserving filtered triplets."""
+    return {
+        "narrative_text": result.get("message", "No validated evidence found."),
+        "triplets": [],
+        "filtered_triplets": result.get("filtered_triplets", []),
+        "leads": result.get("leads", []),
+        "context_summary": "",
+        "suggested_actions": [],
+        "grounding_status": "FAILED - No Validated Triples Found",
+        "grounding_error": True,
+    }
 
 
 @app.post("/chat/stream")
@@ -467,7 +471,7 @@ async def chat_discovery_stream(request: ChatRequest):
             else:
                 result = await generator.generate_answer(request.query, explain=request.explain)
                 if _is_grounding_error(result):
-                    yield f"data: {json.dumps({'type': 'error', **GROUNDING_ERROR_RESPONSE})}\n\n"
+                    yield f"data: {json.dumps({'type': 'grounding_error', **_grounding_error_response(result)})}\n\n"
                     return
                 grounding_status = "OK - Local Graph"
             narrative = result.get("narrative_text", "")
@@ -476,7 +480,7 @@ async def chat_discovery_stream(request: ChatRequest):
                 chunk = narrative[i : i + chunk_size]
                 yield f"data: {json.dumps({'type': 'chunk', 'text': chunk})}\n\n"
                 await asyncio.sleep(0.02)
-            yield f"data: {json.dumps({'type': 'done', 'triplets': result.get('triplets', []), 'leads': result.get('leads', []), 'suggested_actions': result.get('suggested_actions', []), 'grounding_status': grounding_status})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'triplets': result.get('triplets', []), 'filtered_triplets': result.get('filtered_triplets', []), 'leads': result.get('leads', []), 'suggested_actions': result.get('suggested_actions', []), 'grounding_status': grounding_status})}\n\n"
         except Exception as e:
             logger.error(f"Stream chat failed: {e}")
             yield f"data: {json.dumps({'type': 'error', 'narrative_text': str(e)})}\n\n"
@@ -503,7 +507,7 @@ async def chat_discovery(request: ChatRequest):
     generator = DiscoveryGenerator()
     result = await generator.generate_answer(request.query, explain=request.explain)
     if _is_grounding_error(result):
-        return GROUNDING_ERROR_RESPONSE
+        return _grounding_error_response(result)
     result["grounding_status"] = "OK - Local Graph"
     return result
 
