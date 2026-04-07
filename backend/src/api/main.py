@@ -212,6 +212,8 @@ def _empty_stats_response(status: str = "unavailable", message: str = "Could not
             "latest_auc_roc": None,
         },
         "research_kpis": {"gnn_auc_roc": None, "gnn_mrr": None, "grounding_score": None, "faithfulness_score": None},
+        "ablation": None,
+        "stage_timings": {},
     }
 
 
@@ -559,7 +561,7 @@ async def trigger_evaluation(background_tasks: BackgroundTasks):
 
 @app.post("/evaluate/ablation")
 async def trigger_ablation_evaluation(background_tasks: BackgroundTasks):
-    """Runs evaluation in all three modes for ablation comparison."""
+    """Runs evaluation in both available modes (full_stack, prompt_only) for ablation comparison."""
     async def run_ablation():
         try:
             _system_state.status = "Running Ablation Evaluation..."

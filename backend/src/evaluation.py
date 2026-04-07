@@ -128,7 +128,7 @@ async def run_grounding_evaluation(mode: str = "full_stack") -> dict:
     Returns and persists results to evaluation_results.json.
 
     Args:
-        mode: Evaluation mode — 'full_stack' | 'graph' | 'prompt_only'.
+        mode: 'full_stack' | 'prompt_only' (graph-only mode not yet implemented).
               'full_stack' uses GNN-validated retrieval + synthesis (default).
               'prompt_only' bypasses the graph entirely (ablation baseline).
     """
