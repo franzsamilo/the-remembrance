@@ -171,7 +171,7 @@ export default function DetectiveBoard({
             <button
               onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
               disabled={currentPage === 0}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-sm border border-[#E5E5E3] bg-[#FFFFFF] hover:bg-[#E8E4D9] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-sm border border-[#E5E5E3] bg-[#FFFFFF] hover:bg-[#F5F5F3] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft size={14} />
               Previous
@@ -182,7 +182,7 @@ export default function DetectiveBoard({
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={currentPage >= totalPages - 1}
-              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-sm border border-[#E5E5E3] bg-[#FFFFFF] hover:bg-[#E8E4D9] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-sm border border-[#E5E5E3] bg-[#FFFFFF] hover:bg-[#F5F5F3] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Next
               <ChevronsRight size={14} />
