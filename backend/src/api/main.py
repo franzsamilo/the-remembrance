@@ -5,6 +5,8 @@ import asyncio
 import logging
 import shutil
 import time
+import threading
+import contextlib
 from collections import defaultdict
 from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,16 +31,27 @@ import dataclasses
 @dataclasses.dataclass
 class _SystemState:
     status: str = "Idle"
-    stage_timings: dict = dataclasses.field(default_factory=dict)
-    _stage_start: float = 0.0
+    stage_timings: dict[str, float] = dataclasses.field(default_factory=dict)
+    _stage_start: dict[str, float] = dataclasses.field(default_factory=dict)
+    _lock: threading.Lock = dataclasses.field(default_factory=threading.Lock)
 
     def start_stage(self, stage: str):
-        self._stage_start = time.time()
+        with self._lock:
+            self._stage_start[stage] = time.time()
 
     def end_stage(self, stage: str):
-        if self._stage_start > 0:
-            self.stage_timings[stage] = round(time.time() - self._stage_start, 1)
-            self._stage_start = 0.0
+        with self._lock:
+            start = self._stage_start.pop(stage, None)
+            if start is not None:
+                self.stage_timings[stage] = round(time.time() - start, 3)
+
+    @contextlib.contextmanager
+    def stage(self, name: str):
+        self.start_stage(name)
+        try:
+            yield
+        finally:
+            self.end_stage(name)
 
 _system_state = _SystemState()
 
@@ -387,10 +400,9 @@ async def trigger_ingestion(background_tasks: BackgroundTasks):
     async def run_pipeline():
         try:
             _system_state.status = "Extracting Concepts..."
-            _system_state.start_stage("ingest")
             logger.info("Starting background ingestion pipeline...")
-            manifest = await process_documents()
-            _system_state.end_stage("ingest")
+            with _system_state.stage("ingest"):
+                manifest = await process_documents()
 
             if not manifest or manifest.get("documents_processed", 0) == 0:
                 _system_state.status = "Idle"
@@ -398,10 +410,9 @@ async def trigger_ingestion(background_tasks: BackgroundTasks):
                 return
 
             _system_state.status = "Embedding Nodes..."
-            _system_state.start_stage("embed")
             logger.info("Ingestion complete. Starting embedding cold-start...")
-            await embed_nodes()
-            _system_state.end_stage("embed")
+            with _system_state.stage("embed"):
+                await embed_nodes()
 
             _system_state.status = "Idle"
             logger.info(
@@ -502,15 +513,13 @@ async def trigger_audit(background_tasks: BackgroundTasks):
     def run_gnn_audit_then_eval():
         try:
             _system_state.status = "Running GNN Audit..."
-            _system_state.start_stage("audit")
             logger.info("Starting GNN Topological Audit...")
-            run_audit()
-            _system_state.end_stage("audit")
+            with _system_state.stage("audit"):
+                run_audit()
             logger.info("Audit complete. Running grounding/faithfulness evaluation...")
             _system_state.status = "Running Evaluation..."
-            _system_state.start_stage("evaluate")
-            asyncio.run(run_grounding_evaluation())
-            _system_state.end_stage("evaluate")
+            with _system_state.stage("evaluate"):
+                asyncio.run(run_grounding_evaluation())
             _system_state.status = "Idle"
             logger.info("Evaluation complete.")
         except Exception as e:
