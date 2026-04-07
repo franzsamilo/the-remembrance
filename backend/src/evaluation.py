@@ -122,10 +122,15 @@ Return ONLY valid JSON: {{"claims": [{{"text": "...", "supported": true/false}}]
     return None
 
 
-async def run_grounding_evaluation() -> dict:
+async def run_grounding_evaluation(mode: str = "full_stack") -> dict:
     """
     Run grounding and faithfulness evaluation on test queries.
     Returns and persists results to evaluation_results.json.
+
+    Args:
+        mode: Evaluation mode — 'full_stack' | 'graph' | 'prompt_only'.
+              'full_stack' uses GNN-validated retrieval + synthesis (default).
+              'prompt_only' bypasses the graph entirely (ablation baseline).
     """
     queries = _load_queries()
     if not queries:
@@ -144,7 +149,10 @@ async def run_grounding_evaluation() -> dict:
 
     for q in queries:
         try:
-            result = await generator.generate_answer(q, explain=True)
+            if mode == "prompt_only":
+                result = await generator.generate_answer_prompt_only(q)
+            else:
+                result = await generator.generate_answer(q, explain=True)
             narrative = result.get("narrative_text", "")
             triplets = result.get("triplets", [])
             if not narrative:
@@ -166,13 +174,35 @@ async def run_grounding_evaluation() -> dict:
         "faithfulness_score": faithfulness_score,
         "completed_at": _utc_now_iso(),
         "sample_count": len(grounding_scores) or len(faithfulness_scores),
+        "mode": mode,
     }
 
+    # Persist per-mode results for ablation comparison
     path = Config.EVALUATION_RESULTS_PATH
     if path:
+        existing = {}
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    existing = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                existing = {}
+        if "ablation" not in existing:
+            existing["ablation"] = {}
+        existing["ablation"][mode] = {
+            "grounding_score": grounding_score,
+            "faithfulness_score": faithfulness_score,
+            "completed_at": _utc_now_iso(),
+            "sample_count": output["sample_count"],
+        }
+        # Keep top-level scores as the latest run
+        existing["grounding_score"] = grounding_score
+        existing["faithfulness_score"] = faithfulness_score
+        existing["completed_at"] = _utc_now_iso()
+        existing["sample_count"] = output["sample_count"]
         with open(path, "w") as f:
-            json.dump(output, f, indent=2)
-        logger.info("Evaluation results written to %s", path)
+            json.dump(existing, f, indent=2)
+        logger.info("Evaluation results written to %s (mode=%s)", path, mode)
 
     return output
 

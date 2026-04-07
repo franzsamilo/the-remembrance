@@ -158,24 +158,25 @@ async def health_check():
         health["database"] = "disconnected"
     return health
 
-def _stats_research_kpis(latest_auc_roc, latest_mrr):
-    """Build research KPIs for dashboard: GNN AUC/MRR + grounding/faithfulness from evaluation_results.json."""
-    grounding_score = None
-    faithfulness_score = None
+def _load_eval_data() -> dict:
+    """Load evaluation_results.json, returning empty dict on failure."""
     eval_path = Config.EVALUATION_RESULTS_PATH
     if eval_path and os.path.exists(eval_path):
         try:
             with open(eval_path, "r") as f:
-                data = json.load(f)
-            grounding_score = data.get("grounding_score")
-            faithfulness_score = data.get("faithfulness_score")
+                return json.load(f)
         except Exception as e:
-            logger.warning("Failed to read evaluation results for research KPIs: %s", e)
+            logger.warning("Failed to read evaluation results: %s", e)
+    return {}
+
+
+def _stats_research_kpis(latest_auc_roc, latest_mrr, eval_data: dict):
+    """Build research KPIs for dashboard: GNN AUC/MRR + grounding/faithfulness from evaluation_results.json."""
     return {
         "gnn_auc_roc": float(latest_auc_roc) if latest_auc_roc is not None else None,
         "gnn_mrr": float(latest_mrr) if latest_mrr is not None else None,
-        "grounding_score": grounding_score,
-        "faithfulness_score": faithfulness_score,
+        "grounding_score": eval_data.get("grounding_score"),
+        "faithfulness_score": eval_data.get("faithfulness_score"),
     }
 
 
@@ -286,6 +287,8 @@ async def get_stats():
 
             graph_state = _derive_graph_state(record)
             audit_state = _derive_audit_state(audit_result)
+            eval_data = _load_eval_data()
+            ablation_results = eval_data.get("ablation") if isinstance(eval_data, dict) else None
             stats = {
                 "status": "healthy",
                 "nodes": record["total_nodes"],
@@ -318,8 +321,10 @@ async def get_stats():
                 "research_kpis": _stats_research_kpis(
                     audit_result["latest_auc_roc"] if audit_result else None,
                     audit_result["latest_mrr"] if audit_result else None,
+                    eval_data,
                 ),
                 "stage_timings": _system_state.stage_timings,
+                "ablation": ablation_results,
             }
             logger.info(f"Stats retrieved: {stats['nodes']} nodes, {stats['relationships']} rels, task: {_system_state.status}")
             return stats
@@ -550,6 +555,25 @@ async def trigger_evaluation(background_tasks: BackgroundTasks):
 
     background_tasks.add_task(run_eval)
     return {"message": "Evaluation triggered. Results will be written to evaluation_results.json."}
+
+
+@app.post("/evaluate/ablation")
+async def trigger_ablation_evaluation(background_tasks: BackgroundTasks):
+    """Runs evaluation in all three modes for ablation comparison."""
+    async def run_ablation():
+        try:
+            _system_state.status = "Running Ablation Evaluation..."
+            logger.info("Starting ablation evaluation (2 modes)...")
+            await run_grounding_evaluation(mode="full_stack")
+            await run_grounding_evaluation(mode="prompt_only")
+            _system_state.status = "Idle"
+            logger.info("Ablation evaluation complete.")
+        except Exception as e:
+            _system_state.status = f"Evaluation Error: {str(e)}"
+            logger.error("Ablation evaluation failure: %s", e)
+
+    background_tasks.add_task(run_ablation)
+    return {"message": "Ablation evaluation triggered (2 modes: full_stack, prompt_only)."}
 
 
 @app.get("/audit/findings")
