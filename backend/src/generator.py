@@ -27,11 +27,8 @@ class DiscoveryGenerator:
             if triplet.get("audit") is not None and triplet.get("audit_status") in validated_statuses
         ]
         # Track what was filtered out
-        filtered_triplets = [
-            triplet
-            for triplet in triplets
-            if triplet not in validated_triplets
-        ]
+        validated_ids = {id(t) for t in validated_triplets}
+        filtered_triplets = [t for t in triplets if id(t) not in validated_ids]
         # Fallback: if no validated triplets (e.g. unaudited graph), use all with audit score >= threshold
         if not validated_triplets and triplets:
             min_score = Config.GROUNDING_MIN_SCORE
@@ -39,7 +36,8 @@ class DiscoveryGenerator:
                 t for t in triplets
                 if t.get("audit") is not None and (t.get("audit") or 0) >= min_score
             ]
-            filtered_triplets = [t for t in triplets if t not in validated_triplets]
+            validated_ids = {id(t) for t in validated_triplets}
+            filtered_triplets = [t for t in triplets if id(t) not in validated_ids]
 
         # Grounding error: no validated triplets at all
         if not validated_triplets:
