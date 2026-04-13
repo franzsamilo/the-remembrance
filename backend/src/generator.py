@@ -13,7 +13,7 @@ class DiscoveryGenerator:
     def __init__(self):
         self.retriever = GraphRetriever()
 
-    async def generate_answer(self, query, explain: bool = False):
+    async def generate_answer(self, query, explain: bool = False, grounding_threshold=None):
         """
         Generates an auditable answer using the Synthesis Layer.
         Returns filtered_triplets for UI transparency.
@@ -31,7 +31,7 @@ class DiscoveryGenerator:
         filtered_triplets = [t for t in triplets if id(t) not in validated_ids]
         # Fallback: if no validated triplets (e.g. unaudited graph), use all with audit score >= threshold
         if not validated_triplets and triplets:
-            min_score = Config.GROUNDING_MIN_SCORE
+            min_score = grounding_threshold if grounding_threshold is not None else Config.GROUNDING_MIN_SCORE
             validated_triplets = [
                 t for t in triplets
                 if t.get("audit") is not None and (t.get("audit") or 0) >= min_score

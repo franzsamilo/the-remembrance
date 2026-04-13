@@ -16,7 +16,7 @@ class GraphRetriever:
         # Using the same embedder for consistency
         self.model = SentenceTransformer(Config.DISTILBERT_MODEL)
 
-    def retrieve(self, query, top_k=5, max_hops=2):
+    def retrieve(self, query, top_k=5):
         """
         Hybrid Vector + Graph Traversal Retrieval.
         1. Find best matching entities via vector similarity.
@@ -35,7 +35,7 @@ class GraphRetriever:
                 # Optimized Query: Find top seed nodes then expand
                 # We use apoc.number.cosineSimilarity or simple dot product
                 
-                logger.info(f"Retrieving context for query: {query}")
+                logger.info("Retrieving context for query: %s", query)
                 
                 # Step A: Vector Match (Candidate Generation)
                 candidate_query = """
@@ -168,7 +168,7 @@ class GraphRetriever:
                         desc_text = f": {record['desc']}" if record['desc'] else ""
                         leads.append(f"{record['name']}{desc_text}")
                 except Exception as e:
-                    logger.warning(f"Community expansion failed (schema likely missing): {e}")
+                    logger.warning("Community expansion failed (schema likely missing): %s", e)
 
                 # Format into context string
                 context_parts = []
@@ -178,7 +178,7 @@ class GraphRetriever:
                 return "\n".join(context_parts), triplets, leads
 
         except Exception as e:
-            logger.error(f"Retrieval Error: {str(e)}")
+            logger.error("Retrieval Error: %s", e)
             return "Internal Retrieval Error.", [], []
 
 if __name__ == "__main__":

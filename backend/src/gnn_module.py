@@ -4,6 +4,7 @@ import copy
 import threading
 import uuid
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -229,6 +230,7 @@ def run_audit():
     # Reproducible runs: same seed yields same AUC/MRR for panel evaluation
     seed = Config.COMPGCN_SEED
     torch.manual_seed(seed)
+    np.random.seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
 

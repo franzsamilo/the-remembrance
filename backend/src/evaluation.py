@@ -36,6 +36,8 @@ def _load_queries() -> list[str]:
         "What are the key findings?",
         "Who are the main researchers?",
         "What methods were used?",
+        "What are the main results?",
+        "What datasets or concepts are discussed?",
     ]
 
 
@@ -122,7 +124,7 @@ Return ONLY valid JSON: {{"claims": [{{"text": "...", "supported": true/false}}]
     return None
 
 
-async def run_grounding_evaluation(mode: str = "full_stack") -> dict:
+async def run_grounding_evaluation(mode: str = "full_stack", grounding_threshold: float | None = None) -> dict:
     """
     Run grounding and faithfulness evaluation on test queries.
     Returns and persists results to evaluation_results.json.
@@ -146,19 +148,25 @@ async def run_grounding_evaluation(mode: str = "full_stack") -> dict:
 
     grounding_scores = []
     faithfulness_scores = []
+    per_query_results = []
 
     for q in queries:
         try:
             if mode == "prompt_only":
                 result = await generator.generate_answer_prompt_only(q)
             else:
-                result = await generator.generate_answer(q, explain=True)
+                result = await generator.generate_answer(q, explain=True, grounding_threshold=grounding_threshold)
             narrative = result.get("narrative_text", "")
             triplets = result.get("triplets", [])
             if not narrative:
                 continue
             g = await _score_grounding(narrative, triplets, llm)
             f = await _score_faithfulness(narrative, triplets, llm)
+            per_query_results.append({
+                "query": q,
+                "grounding_score": g,
+                "faithfulness_score": f,
+            })
             if g is not None:
                 grounding_scores.append(g)
             if f is not None:
@@ -175,6 +183,8 @@ async def run_grounding_evaluation(mode: str = "full_stack") -> dict:
         "completed_at": _utc_now_iso(),
         "sample_count": len(grounding_scores) or len(faithfulness_scores),
         "mode": mode,
+        "grounding_threshold": grounding_threshold or Config.GROUNDING_MIN_SCORE,
+        "per_query": per_query_results,
     }
 
     # Persist per-mode results for ablation comparison
@@ -194,17 +204,79 @@ async def run_grounding_evaluation(mode: str = "full_stack") -> dict:
             "faithfulness_score": faithfulness_score,
             "completed_at": _utc_now_iso(),
             "sample_count": output["sample_count"],
+            "per_query": per_query_results,
         }
         # Keep top-level scores as the latest run
         existing["grounding_score"] = grounding_score
         existing["faithfulness_score"] = faithfulness_score
         existing["completed_at"] = _utc_now_iso()
         existing["sample_count"] = output["sample_count"]
+        existing["per_query"] = per_query_results
         with open(path, "w") as f:
             json.dump(existing, f, indent=2)
         logger.info("Evaluation results written to %s (mode=%s)", path, mode)
 
     return output
+
+
+def persist_gnn_metrics(training_history: dict) -> None:
+    """Merge GNN training metrics into evaluation_results.json."""
+    path = Config.EVALUATION_RESULTS_PATH
+    if not path:
+        return
+    existing = {}
+    if os.path.exists(path):
+        try:
+            with open(path, "r") as f:
+                existing = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            existing = {}
+    existing["gnn"] = {
+        "auc_roc": training_history.get("final_auc_roc"),
+        "mrr": training_history.get("final_mrr"),
+        "best_epoch": training_history.get("best_epoch"),
+        "early_stop_epoch": training_history.get("early_stop_epoch"),
+        "completed_at": _utc_now_iso(),
+    }
+    with open(path, "w") as f:
+        json.dump(existing, f, indent=2)
+    logger.info("GNN metrics written to %s", path)
+
+
+async def run_threshold_sweep(thresholds: list[float] | None = None) -> dict:
+    """Run evaluation across multiple plausibility thresholds for sensitivity analysis."""
+    if thresholds is None:
+        thresholds = [0.85, 0.90, 0.95, 0.99]
+    results = {}
+    for tau in thresholds:
+        logger.info("Threshold sweep: running evaluation at τ=%.2f", tau)
+        result = await run_grounding_evaluation(
+            mode="full_stack", grounding_threshold=tau
+        )
+        results[str(tau)] = {
+            "grounding_score": result.get("grounding_score"),
+            "faithfulness_score": result.get("faithfulness_score"),
+            "sample_count": result.get("sample_count"),
+            "per_query": result.get("per_query", []),
+        }
+    path = Config.EVALUATION_RESULTS_PATH
+    if path:
+        existing = {}
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    existing = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                existing = {}
+        existing["threshold_sweep"] = {
+            "thresholds": thresholds,
+            "results": results,
+            "completed_at": _utc_now_iso(),
+        }
+        with open(path, "w") as f:
+            json.dump(existing, f, indent=2)
+        logger.info("Threshold sweep results written to %s", path)
+    return results
 
 
 if __name__ == "__main__":

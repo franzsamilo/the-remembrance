@@ -94,6 +94,9 @@ class Config:
     RATE_LIMIT_WINDOW_SEC = int(os.getenv("RATE_LIMIT_WINDOW_SEC", 60))
 
     GROUNDING_MIN_SCORE = float(os.getenv("GROUNDING_MIN_SCORE", 0.95))
+    TARGET_AUC_ROC = float(os.getenv("TARGET_AUC_ROC", 0.95))
+    TARGET_MRR = float(os.getenv("TARGET_MRR", 0.95))
+    TARGET_GROUNDING = float(os.getenv("TARGET_GROUNDING", 0.95))
 
     @classmethod
     def validate(cls):

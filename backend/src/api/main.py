@@ -23,7 +23,7 @@ from src.ingestion import process_documents
 from src.embed_nodes import embed_nodes
 from src.gnn_module import run_audit, get_training_history
 from src.generator import DiscoveryGenerator
-from src.evaluation import run_grounding_evaluation
+from src.evaluation import run_grounding_evaluation, persist_gnn_metrics, run_threshold_sweep
 
 # Live Status Tracking (asyncio-safe for single-worker deployment)
 import dataclasses
@@ -527,6 +527,12 @@ async def trigger_audit(background_tasks: BackgroundTasks):
             logger.info("Starting GNN Topological Audit...")
             with _system_state.stage("audit"):
                 run_audit()
+            history = get_training_history()
+            persist_gnn_metrics(history)
+            history_path = os.path.join(Config.BASE_DIR, "training_history.json")
+            with open(history_path, "w") as f:
+                json.dump(history, f, indent=2)
+            logger.info("Training history saved to %s", history_path)
             logger.info("Audit complete. Running grounding/faithfulness evaluation...")
             _system_state.status = "Running Evaluation..."
             with _system_state.stage("evaluate"):
@@ -534,8 +540,8 @@ async def trigger_audit(background_tasks: BackgroundTasks):
             _system_state.status = "Idle"
             logger.info("Evaluation complete.")
         except Exception as e:
-            _system_state.status = f"Audit Error: {str(e)}"
-            logger.error(f"Audit failure: {str(e)}")
+            _system_state.status = "Audit Error"
+            logger.error("Audit failure: %s", e)
 
     background_tasks.add_task(run_gnn_audit_then_eval)
     return {"message": "GNN Audit triggered. Evaluation will run automatically after audit."}
@@ -576,6 +582,24 @@ async def trigger_ablation_evaluation(background_tasks: BackgroundTasks):
 
     background_tasks.add_task(run_ablation)
     return {"message": "Ablation evaluation triggered (2 modes: full_stack, prompt_only)."}
+
+
+@app.post("/evaluate/threshold-sweep")
+async def trigger_threshold_sweep(background_tasks: BackgroundTasks):
+    """Runs evaluation across multiple plausibility thresholds (τ = 0.85, 0.90, 0.95, 0.99)."""
+    async def run_sweep():
+        try:
+            _system_state.status = "Running Threshold Sweep..."
+            logger.info("Starting threshold sensitivity sweep...")
+            await run_threshold_sweep()
+            _system_state.status = "Idle"
+            logger.info("Threshold sweep complete.")
+        except Exception as e:
+            _system_state.status = "Idle"
+            logger.error("Threshold sweep failure: %s", e)
+
+    background_tasks.add_task(run_sweep)
+    return {"message": "Threshold sensitivity sweep triggered (τ = 0.85, 0.90, 0.95, 0.99)."}
 
 
 @app.get("/audit/findings")
@@ -712,6 +736,39 @@ async def get_audit_training_history():
     return get_training_history()
 
 
+@app.get("/audit/plausibility-distribution")
+async def get_plausibility_distribution():
+    """Returns plausibility score distribution statistics and histogram data."""
+    import numpy as np_dist
+    driver = DatabaseManager.get_driver()
+    with driver.session(database=Config.NEO4J_DATABASE) as session:
+        result = session.run("""
+            MATCH ()-[r]->()
+            WHERE r.plausibility_score IS NOT NULL
+            RETURN r.plausibility_score AS score
+        """)
+        scores = [record["score"] for record in result]
+    if not scores:
+        return {"count": 0, "scores": [], "statistics": {}, "histogram": {}}
+    arr = np_dist.array(scores)
+    hist_counts, bin_edges = np_dist.histogram(arr, bins=20, range=(0.0, 1.0))
+    return {
+        "count": len(scores),
+        "statistics": {
+            "mean": float(np_dist.mean(arr)),
+            "std": float(np_dist.std(arr)),
+            "min": float(np_dist.min(arr)),
+            "max": float(np_dist.max(arr)),
+            "median": float(np_dist.median(arr)),
+        },
+        "scores": scores,
+        "histogram": {
+            "counts": hist_counts.tolist(),
+            "bin_edges": bin_edges.tolist(),
+        },
+    }
+
+
 @app.get("/documents")
 async def list_documents():
     """Lists available PDF source documents."""
@@ -764,9 +821,9 @@ def _build_evaluation_section(latest_auc_roc, latest_mrr, audit_completed_at):
         except Exception as e:
             logger.warning("Failed to read evaluation results: %s", e)
 
-    target_auc = 0.95
-    target_mrr = 0.95
-    target_grounding = 0.98
+    target_auc = Config.TARGET_AUC_ROC
+    target_mrr = Config.TARGET_MRR
+    target_grounding = Config.TARGET_GROUNDING
 
     return {
         "gnn": {
