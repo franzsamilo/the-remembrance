@@ -558,8 +558,8 @@ async def trigger_evaluation(background_tasks: BackgroundTasks):
             _system_state.status = "Idle"
             logger.info("Evaluation complete.")
         except Exception as e:
-            _system_state.status = f"Evaluation Error: {str(e)}"
-            logger.error(f"Evaluation failure: {str(e)}")
+            _system_state.status = "Evaluation Error"
+            logger.error("Evaluation failure: %s", e)
 
     background_tasks.add_task(run_eval)
     return {"message": "Evaluation triggered. Results will be written to evaluation_results.json."}
@@ -577,7 +577,7 @@ async def trigger_ablation_evaluation(background_tasks: BackgroundTasks):
             _system_state.status = "Idle"
             logger.info("Ablation evaluation complete.")
         except Exception as e:
-            _system_state.status = f"Evaluation Error: {str(e)}"
+            _system_state.status = "Evaluation Error"
             logger.error("Ablation evaluation failure: %s", e)
 
     background_tasks.add_task(run_ablation)

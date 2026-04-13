@@ -58,7 +58,7 @@ class GraphRetriever:
                   AND n.embedding_model = $embedding_model
                   AND coalesce(n.embedding_dimension, 0) = $embedding_dimension
                 RETURN elementId(n) as id, n.name as name, n.embedding as emb, n.description as desc
-                LIMIT 100
+                LIMIT $seed_limit
                 """
                 
                 seed_results = session.run(
@@ -66,6 +66,7 @@ class GraphRetriever:
                     retrievable_labels=list(Config.LEGAL_NODE_TYPES),
                     embedding_model=Config.DISTILBERT_MODEL,
                     embedding_dimension=Config.EMBEDDING_DIMENSION,
+                    seed_limit=Config.RETRIEVAL_SEED_LIMIT,
                 )
                 candidates = []
                 query_norm = np.linalg.norm(query_vector)
@@ -105,10 +106,10 @@ class GraphRetriever:
                        s.source_documents as s_docs,
                        t.source_document as t_doc,
                        t.source_documents as t_docs
-                LIMIT 20
+                LIMIT $expansion_limit
                 """
-                
-                discovery_results = session.run(discovery_query, seeds=seed_ids)
+
+                discovery_results = session.run(discovery_query, seeds=seed_ids, expansion_limit=Config.RETRIEVAL_EXPANSION_LIMIT)
                 triplets = []
                 for record in discovery_results:
                     s_docs_raw = record.get("s_docs") or []
