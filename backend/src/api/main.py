@@ -533,6 +533,13 @@ async def trigger_audit(background_tasks: BackgroundTasks):
             with open(history_path, "w") as f:
                 json.dump(history, f, indent=2)
             logger.info("Training history saved to %s", history_path)
+            _system_state.status = "Running Community Detection..."
+            try:
+                from src.community import run_community_detection
+                community_result = run_community_detection()
+                logger.info("Community detection: %s communities found.", community_result.get("communities", 0))
+            except Exception as ce:
+                logger.warning("Community detection skipped: %s", ce)
             logger.info("Audit complete. Running grounding/faithfulness evaluation...")
             _system_state.status = "Running Evaluation..."
             with _system_state.stage("evaluate"):

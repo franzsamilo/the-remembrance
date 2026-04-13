@@ -99,6 +99,7 @@ class Config:
     TARGET_GROUNDING = float(os.getenv("TARGET_GROUNDING", 0.95))
     RETRIEVAL_SEED_LIMIT = int(os.getenv("RETRIEVAL_SEED_LIMIT", 100))
     RETRIEVAL_EXPANSION_LIMIT = int(os.getenv("RETRIEVAL_EXPANSION_LIMIT", 20))
+    LEIDEN_RESOLUTION = float(os.getenv("LEIDEN_RESOLUTION", 1.0))
 
     @classmethod
     def validate(cls):
