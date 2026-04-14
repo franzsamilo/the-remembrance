@@ -98,6 +98,7 @@ class GraphRetriever:
                 MATCH (s)-[r]->(t)
                 WHERE (elementId(s) IN $seeds OR elementId(t) IN $seeds)
                   AND type(r) <> 'FROM_CHUNK'
+                  AND (r.plausibility_score IS NULL OR r.plausibility_score >= $min_plausibility)
                 RETURN s.name as source, type(r) as rel, t.name as target,
                        coalesce(r.plausibility_score, r.audit_score) as audit,
                        r.audit_status as audit_status,
@@ -109,7 +110,12 @@ class GraphRetriever:
                 LIMIT $expansion_limit
                 """
 
-                discovery_results = session.run(discovery_query, seeds=seed_ids, expansion_limit=Config.RETRIEVAL_EXPANSION_LIMIT)
+                discovery_results = session.run(
+                    discovery_query,
+                    seeds=seed_ids,
+                    expansion_limit=Config.RETRIEVAL_EXPANSION_LIMIT,
+                    min_plausibility=Config.GROUNDING_MIN_SCORE,
+                )
                 triplets = []
                 for record in discovery_results:
                     s_docs_raw = record.get("s_docs") or []

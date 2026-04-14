@@ -66,9 +66,18 @@ async def _score_grounding(narrative: str, triplets: list, llm) -> float | None:
         return None
     triplet_str = "\n".join(
         f"({t.get('source')})-[{t.get('relation')}]->({t.get('target')})"
-        for t in triplets[:15]
+        for t in triplets[:30]
     )
-    prompt = f"""You are an evaluator. Given this narrative and these knowledge graph triplets, rate each substantive claim in the narrative from 1-5 (5=fully traceable to the triplets, 1=not traceable).
+    prompt = f"""You are a strict grounding evaluator. Given a narrative and knowledge graph triplets, identify each distinct factual claim in the narrative and rate how well it is supported by the triplets.
+
+SCORING RUBRIC:
+- 5: Claim directly maps to one or more triplets (entity names and relationship match exactly)
+- 4: Claim is strongly implied by combining 2-3 triplets in a logical chain
+- 3: Claim references entities from the triplets but states a relationship not explicitly present
+- 2: Claim is loosely related to triplet content but adds unsupported interpretation
+- 1: Claim has no traceable connection to any triplet
+
+A "claim" is any statement asserting a fact, relationship, or conclusion — typically one per sentence. Ignore stylistic or transitional text.
 
 NARRATIVE:
 {narrative}
@@ -76,7 +85,7 @@ NARRATIVE:
 TRIPLETS:
 {triplet_str}
 
-Return ONLY valid JSON: {{"scores": [1,5,4,...], "average": X}} where average is the mean of scores. Use 0-5 scale for average."""
+Return ONLY valid JSON: {{"scores": [5,4,3,...], "average": X}} where average is the mean of all scores (0-5 scale)."""
     try:
         resp = await llm.ainvoke(prompt)
         data = _parse_json_from_response(resp.content)
@@ -98,9 +107,15 @@ async def _score_faithfulness(narrative: str, triplets: list, llm) -> float | No
         return None
     triplet_str = "\n".join(
         f"({t.get('source')})-[{t.get('relation')}]->({t.get('target')})"
-        for t in triplets[:15]
+        for t in triplets[:30]
     )
-    prompt = f"""You are an evaluator. List each factual claim in the narrative. For each, say if it is supported by the triplets (yes/no).
+    prompt = f"""You are a strict faithfulness evaluator. Extract every distinct factual claim from the narrative and determine whether each is supported by the provided triplets.
+
+RULES:
+- A "claim" is any statement asserting a fact, relationship, attribution, or conclusion. Extract one claim per distinct assertion (typically one per sentence, but compound sentences may have multiple).
+- A claim is "supported" (true) ONLY if the entities AND relationship can be traced to one or more triplets, either directly or through a short logical chain (2-3 triplets).
+- A claim is "unsupported" (false) if it introduces entities, relationships, or conclusions not present in the triplets — even if plausible.
+- Ignore transitional phrases, questions, and stylistic language — only evaluate factual assertions.
 
 NARRATIVE:
 {narrative}
@@ -108,7 +123,7 @@ NARRATIVE:
 TRIPLETS:
 {triplet_str}
 
-Return ONLY valid JSON: {{"claims": [{{"text": "...", "supported": true/false}}], "ratio": X}} where ratio = supported_count / total_count (0-1)."""
+Return ONLY valid JSON: {{"claims": [{{"text": "...", "supported": true/false}}], "ratio": X}} where ratio = supported_count / total_count (0.0-1.0)."""
     try:
         resp = await llm.ainvoke(prompt)
         data = _parse_json_from_response(resp.content)

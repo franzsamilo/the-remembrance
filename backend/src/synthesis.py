@@ -19,7 +19,7 @@ async def generate_chunk_response(query: str, context_chunks: str) -> str:
     llm = ChatGoogleGenerativeAI(
         model=Config.GEMINI_MODEL,
         google_api_key=Config.GOOGLE_API_KEY,
-        temperature=0.3,
+        temperature=0,  # Deterministic: reproducible synthesis for evaluation
     )
     prompt = f"""Answer the user's question using ONLY the following document excerpts. Do not use outside knowledge. If the excerpts do not contain enough information, say so clearly. Be direct and cite which document (the [filename] prefix) supports your answer when relevant.
 
@@ -78,7 +78,7 @@ async def generate_narrative_response(
     llm = ChatGoogleGenerativeAI(
         model=Config.GEMINI_MODEL,
         google_api_key=Config.GOOGLE_API_KEY,
-        temperature=0.3 # Slightly higher for proactive thinking
+        temperature=0  # Deterministic: reproducible synthesis for evaluation
     )
 
     persona_line = (
@@ -89,12 +89,17 @@ async def generate_narrative_response(
 
     system_instruction = f"""
     PERSONA: {persona_line}
-    OBJECTIVE: Provide a hard-evidencing Analytical Briefing. You are a true detective: direct, unhedged, and completely reliant on the evidence provided. 
-    Never use weak or artificially cautious language like "it is not specifically mentioned" or "might be relevant". Speak with absolute conviction based ONLY on the provided graph evidence. Avoid hedging or apologizing for missing information; instead, present what IS known as concrete evidence.
+    OBJECTIVE: Provide a precise, evidence-grounded Analytical Briefing. You are a meticulous analyst: every claim must be directly traceable to the provided graph evidence.
+
+    GROUNDING RULES:
+    - ONLY state facts that are explicitly present in the provided Graph Triples.
+    - Do NOT infer, extrapolate, or synthesize connections that are not directly represented in the triples.
+    - If the evidence is sparse or covers only part of the question, state what IS known and stop. Do not fill gaps with plausible-sounding claims.
+    - Each sentence in your narrative should map to one or more specific triples.
 
     SOURCE USAGE:
-    - Use the provided Graph Triples as your absolute core evidence.
-    - Use the provided "Discovery Leads" for broader context and investigative paths.
+    - Use the provided Graph Triples as your sole factual evidence.
+    - Use the provided "Discovery Leads" for broader context and investigative paths, but clearly distinguish them from triple-backed facts.
     - DO NOT mention 'triples', 'nodes', 'edges', 'Leiden', or 'clusters'.
     
     RESPONSE STRUCTURE (Fluid & Spaced):
@@ -125,12 +130,17 @@ async def generate_narrative_response(
 
     system_instruction_simple = f"""
     PERSONA: {persona_line}
-    OBJECTIVE: Provide a hard-evidencing Analytical Briefing. You are a true detective: direct, unhedged, and completely reliant on the evidence provided. 
-    Never use weak or artificially cautious language like "it is not specifically mentioned" or "might be relevant". Speak with absolute conviction based ONLY on the provided graph evidence. Avoid hedging or apologizing for missing information; instead, present what IS known as concrete evidence.
+    OBJECTIVE: Provide a precise, evidence-grounded Analytical Briefing. You are a meticulous analyst: every claim must be directly traceable to the provided graph evidence.
+
+    GROUNDING RULES:
+    - ONLY state facts that are explicitly present in the provided Graph Triples.
+    - Do NOT infer, extrapolate, or synthesize connections that are not directly represented in the triples.
+    - If the evidence is sparse or covers only part of the question, state what IS known and stop. Do not fill gaps with plausible-sounding claims.
+    - Each sentence in your narrative should map to one or more specific triples.
 
     SOURCE USAGE:
-    - Use the provided Graph Triples as your absolute core evidence.
-    - Use the provided "Discovery Leads" for broader context and investigative paths.
+    - Use the provided Graph Triples as your sole factual evidence.
+    - Use the provided "Discovery Leads" for broader context and investigative paths, but clearly distinguish them from triple-backed facts.
     - DO NOT mention 'triples', 'nodes', 'edges', 'Leiden', or 'clusters'.
     
     RESPONSE STRUCTURE (Fluid & Spaced):
