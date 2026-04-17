@@ -93,14 +93,23 @@ class GraphRetriever:
                     return "No relevant knowledge found in the graph.", [], []
 
                 # Step B: Graph Expansion (Discovery)
-                # Fetch paths and relationships with provenance for legal citation
+                # Per the Validate-then-Generate design principle, the retriever
+                # fetches FULL graph context (no plausibility filter in Cypher).
+                # All τ filtering is done generator-side so the threshold can be
+                # parameterised per-query (threshold sweeps, ablations) and so
+                # the filtering decision is visible to the UI / evidence trail.
+                # ORDER BY plausibility DESC: among edges incident to the relevance-
+                # ranked seeds, surface the ones the GNN trusts most. Without this,
+                # Neo4j returns in arbitrary storage order, which in practice
+                # under-samples high-plausibility edges.
                 discovery_query = """
                 MATCH (s)-[r]->(t)
                 WHERE (elementId(s) IN $seeds OR elementId(t) IN $seeds)
                   AND type(r) <> 'FROM_CHUNK'
-                  AND (r.plausibility_score IS NULL OR r.plausibility_score >= $min_plausibility)
+                WITH s, r, t, coalesce(r.plausibility_score, r.audit_score, 0.0) AS plaus
+                ORDER BY plaus DESC
                 RETURN s.name as source, type(r) as rel, t.name as target,
-                       coalesce(r.plausibility_score, r.audit_score) as audit,
+                       plaus as audit,
                        r.audit_status as audit_status,
                        r.description as rel_desc,
                        s.source_document as s_doc,
@@ -114,7 +123,6 @@ class GraphRetriever:
                     discovery_query,
                     seeds=seed_ids,
                     expansion_limit=Config.RETRIEVAL_EXPANSION_LIMIT,
-                    min_plausibility=Config.GROUNDING_MIN_SCORE,
                 )
                 triplets = []
                 for record in discovery_results:
@@ -161,9 +169,9 @@ class GraphRetriever:
                 
                 community_query = """
                 MATCH (n) WHERE elementId(n) = $id
-                WITH n.community as comm
+                WITH n.community as comm, n.name as seed_name
                 WHERE comm IS NOT NULL
-                MATCH (m) WHERE m.community = comm AND m.name <> n.name
+                MATCH (m) WHERE m.community = comm AND m.name <> seed_name
                 RETURN m.name as name, m.description as desc, m.pagerank as rank
                 ORDER BY m.pagerank DESC LIMIT 5
                 """

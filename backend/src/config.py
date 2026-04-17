@@ -57,6 +57,10 @@ class Config:
     COMPGCN_GRAD_CLIP = float(os.getenv("COMPGCN_GRAD_CLIP", 1.0))
     COMPGCN_NEG_RATIO = int(os.getenv("COMPGCN_NEG_RATIO", 10))
     COMPGCN_SEED = int(os.getenv("COMPGCN_SEED", 42))  # Set for reproducible audit runs
+    # Training loss: "bce" (BCEWithLogits, proved 0.9646 AUC baseline) or
+    # "bpr" (pairwise Bayesian Personalized Ranking -log sigmoid(pos-neg); targets MRR)
+    COMPGCN_LOSS = os.getenv("COMPGCN_LOSS", "bce").lower()
+    COMPGCN_BPR_MARGIN = float(os.getenv("COMPGCN_BPR_MARGIN", 0.0))
     LEGAL_NODE_TYPES = _parse_csv_env(
         "LEGAL_NODE_TYPES",
         "__Entity__,Entity,Method,Researcher,Dataset,Concept,Result,Metric",

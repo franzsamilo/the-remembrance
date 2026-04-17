@@ -57,3 +57,7 @@ framework.log
 
 # Design docs (optional — remove if you want to track these)
 # docs/superpowers/
+
+# Training checkpoints (reproducible from code)
+backend/run_logs/*.pt
+backend/run_logs/*_meta.json

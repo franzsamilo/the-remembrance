@@ -139,7 +139,11 @@ Return ONLY valid JSON: {{"claims": [{{"text": "...", "supported": true/false}}]
     return None
 
 
-async def run_grounding_evaluation(mode: str = "full_stack", grounding_threshold: float | None = None) -> dict:
+async def run_grounding_evaluation(
+    mode: str = "full_stack",
+    grounding_threshold: float | None = None,
+    persist_to_ablation: bool = True,
+) -> dict:
     """
     Run grounding and faithfulness evaluation on test queries.
     Returns and persists results to evaluation_results.json.
@@ -148,6 +152,10 @@ async def run_grounding_evaluation(mode: str = "full_stack", grounding_threshold
         mode: 'full_stack' | 'prompt_only' (graph-only mode not yet implemented).
               'full_stack' uses GNN-validated retrieval + synthesis (default).
               'prompt_only' bypasses the graph entirely (ablation baseline).
+        persist_to_ablation: Write results into evaluation_results.json's
+              top-level + ablation[mode] section. Set False when called from a
+              threshold sweep so transient thresholds don't clobber the primary
+              ablation numbers.
     """
     queries = _load_queries()
     if not queries:
@@ -204,7 +212,7 @@ async def run_grounding_evaluation(mode: str = "full_stack", grounding_threshold
 
     # Persist per-mode results for ablation comparison
     path = Config.EVALUATION_RESULTS_PATH
-    if path:
+    if path and persist_to_ablation:
         existing = {}
         if os.path.exists(path):
             try:
@@ -261,12 +269,16 @@ def persist_gnn_metrics(training_history: dict) -> None:
 async def run_threshold_sweep(thresholds: list[float] | None = None) -> dict:
     """Run evaluation across multiple plausibility thresholds for sensitivity analysis."""
     if thresholds is None:
-        thresholds = [0.85, 0.90, 0.95, 0.99]
+        # BPR-trained model: scores span [0, 1]. Paper's τ=0.95 is meaningful.
+        # Sweep spans both BCE and BPR usable bands.
+        thresholds = [0.30, 0.50, 0.85, 0.95]
     results = {}
     for tau in thresholds:
-        logger.info("Threshold sweep: running evaluation at τ=%.2f", tau)
+        logger.info("Threshold sweep: running evaluation at tau=%.2f", tau)
         result = await run_grounding_evaluation(
-            mode="full_stack", grounding_threshold=tau
+            mode="full_stack",
+            grounding_threshold=tau,
+            persist_to_ablation=False,
         )
         results[str(tau)] = {
             "grounding_score": result.get("grounding_score"),

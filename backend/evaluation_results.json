@@ -1,6 +1,247 @@
 {
-  "grounding_score": 0.8415000000000001,
-  "faithfulness_score": 0.825,
-  "completed_at": "2026-04-06T11:49:39.827038+00:00",
-  "sample_count": 5
+  "grounding_score": 0.7462,
+  "faithfulness_score": 0.30574436090225565,
+  "completed_at": "2026-04-17T23:02:17.688711+00:00",
+  "sample_count": 5,
+  "ablation": {
+    "full_stack": {
+      "grounding_score": 0.9132,
+      "faithfulness_score": 0.788888888888889,
+      "completed_at": "2026-04-17T22:43:34.781607+00:00",
+      "sample_count": 5,
+      "per_query": [
+        {
+          "query": "What are the key findings?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "Who are the main researchers?",
+          "grounding_score": 0.6,
+          "faithfulness_score": 0.0
+        },
+        {
+          "query": "What methods were used?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What are the main results?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What datasets or concepts are discussed?",
+          "grounding_score": 0.966,
+          "faithfulness_score": 0.9444444444444444
+        }
+      ]
+    },
+    "prompt_only": {
+      "grounding_score": 0.7462,
+      "faithfulness_score": 0.30574436090225565,
+      "completed_at": "2026-04-17T23:02:17.688711+00:00",
+      "sample_count": 5,
+      "per_query": [
+        {
+          "query": "What are the key findings?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 0.5
+        },
+        {
+          "query": "Who are the main researchers?",
+          "grounding_score": 0.725,
+          "faithfulness_score": 0.10714285714285714
+        },
+        {
+          "query": "What methods were used?",
+          "grounding_score": 0.4,
+          "faithfulness_score": 0.39
+        },
+        {
+          "query": "What are the main results?",
+          "grounding_score": 0.9199999999999999,
+          "faithfulness_score": 0.4
+        },
+        {
+          "query": "What datasets or concepts are discussed?",
+          "grounding_score": 0.686,
+          "faithfulness_score": 0.13157894736842105
+        }
+      ]
+    }
+  },
+  "gnn": {
+    "auc_roc": 0.9688,
+    "mrr": 0.886,
+    "best_epoch": 168,
+    "early_stop_epoch": 198,
+    "completed_at": "2026-04-17T22:38:52.763923+00:00"
+  },
+  "per_query": [
+    {
+      "query": "What are the key findings?",
+      "grounding_score": 1.0,
+      "faithfulness_score": 0.5
+    },
+    {
+      "query": "Who are the main researchers?",
+      "grounding_score": 0.725,
+      "faithfulness_score": 0.10714285714285714
+    },
+    {
+      "query": "What methods were used?",
+      "grounding_score": 0.4,
+      "faithfulness_score": 0.39
+    },
+    {
+      "query": "What are the main results?",
+      "grounding_score": 0.9199999999999999,
+      "faithfulness_score": 0.4
+    },
+    {
+      "query": "What datasets or concepts are discussed?",
+      "grounding_score": 0.686,
+      "faithfulness_score": 0.13157894736842105
+    }
+  ],
+  "threshold_sweep": {
+    "thresholds": [
+      0.3,
+      0.5,
+      0.85,
+      0.95
+    ],
+    "results": {
+      "0.3": {
+        "grounding_score": 0.9078000000000002,
+        "faithfulness_score": 0.780952380952381,
+        "sample_count": 5,
+        "per_query": [
+          {
+            "query": "What are the key findings?",
+            "grounding_score": 1.0,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "Who are the main researchers?",
+            "grounding_score": 0.6,
+            "faithfulness_score": 0.0
+          },
+          {
+            "query": "What methods were used?",
+            "grounding_score": 0.975,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "What are the main results?",
+            "grounding_score": 1.0,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "What datasets or concepts are discussed?",
+            "grounding_score": 0.9640000000000001,
+            "faithfulness_score": 0.9047619047619048
+          }
+        ]
+      },
+      "0.5": {
+        "grounding_score": 0.9074,
+        "faithfulness_score": 0.79,
+        "sample_count": 5,
+        "per_query": [
+          {
+            "query": "What are the key findings?",
+            "grounding_score": 1.0,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "Who are the main researchers?",
+            "grounding_score": 0.6,
+            "faithfulness_score": 0.0
+          },
+          {
+            "query": "What methods were used?",
+            "grounding_score": 0.975,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "What are the main results?",
+            "grounding_score": 1.0,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "What datasets or concepts are discussed?",
+            "grounding_score": 0.962,
+            "faithfulness_score": 0.95
+          }
+        ]
+      },
+      "0.85": {
+        "grounding_score": 0.9116,
+        "faithfulness_score": 0.77,
+        "sample_count": 5,
+        "per_query": [
+          {
+            "query": "What are the key findings?",
+            "grounding_score": 1.0,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "Who are the main researchers?",
+            "grounding_score": 0.6,
+            "faithfulness_score": 0.0
+          },
+          {
+            "query": "What methods were used?",
+            "grounding_score": 1.0,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "What are the main results?",
+            "grounding_score": 1.0,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "What datasets or concepts are discussed?",
+            "grounding_score": 0.958,
+            "faithfulness_score": 0.85
+          }
+        ]
+      },
+      "0.95": {
+        "grounding_score": 0.9866666666666667,
+        "faithfulness_score": 0.9789473684210526,
+        "sample_count": 5,
+        "per_query": [
+          {
+            "query": "What are the key findings?",
+            "grounding_score": 1.0,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "Who are the main researchers?",
+            "grounding_score": 1.0,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "What methods were used?",
+            "grounding_score": 1.0,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "What are the main results?",
+            "grounding_score": 1.0,
+            "faithfulness_score": 1.0
+          },
+          {
+            "query": "What datasets or concepts are discussed?",
+            "grounding_score": 0.9333333333333333,
+            "faithfulness_score": 0.8947368421052632
+          }
+        ]
+      }
+    },
+    "completed_at": "2026-04-17T22:56:56.556025+00:00"
+  }
 }

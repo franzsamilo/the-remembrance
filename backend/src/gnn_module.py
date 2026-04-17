@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import json
+import os
 import threading
 import uuid
 
@@ -11,6 +13,10 @@ import torch.nn.functional as F
 
 from src.config import Config, logger
 from src.helpers import utc_now_iso as _utc_now_iso
+
+CHECKPOINT_DIR = os.path.join(Config.BASE_DIR, "run_logs")
+CHECKPOINT_PATH = os.path.join(CHECKPOINT_DIR, "compgcn_best.pt")
+CHECKPOINT_META_PATH = os.path.join(CHECKPOINT_DIR, "compgcn_best_meta.json")
 
 # Training history for UI visualization (module-level, survives across requests)
 _training_history: dict = {"epochs": [], "early_stop_epoch": None, "best_epoch": None}
@@ -62,6 +68,10 @@ def _sample_negative_edges(
 
     neg_edges_list = []
     neg_types_list = []
+    # Pre-materialize edge_type once to Python list; per-element .item() inside
+    # the hot inner loop triggers PyTorch SymInt errors / memory faults on
+    # Windows when called ~1.9M times per epoch.
+    rel_cpu = edge_type.tolist() if positive_triples is not None else None
     for _ in range(num_negatives):
         negative_edges = edge_index.clone()
         corrupt_tail_mask = torch.rand(edge_index.size(1)) > 0.5
@@ -72,14 +82,18 @@ def _sample_negative_edges(
             negative_edges[0, ~corrupt_tail_mask] = random_nodes[~corrupt_tail_mask]
             if positive_triples is None:
                 break
-            bad = []
-            for i in range(edge_index.size(1)):
-                s, t = int(negative_edges[0, i].item()), int(negative_edges[1, i].item())
-                r = int(edge_type[i].item())
-                if (s, t, r) in positive_triples:
-                    bad.append(i)
+            # Batch convert each row once per attempt (instead of per-index .item())
+            srcs = negative_edges[0].tolist()
+            dsts = negative_edges[1].tolist()
+            bad = [
+                i
+                for i in range(len(rel_cpu))
+                if (srcs[i], dsts[i], rel_cpu[i]) in positive_triples
+            ]
             if not bad:
                 break
+            # Keep per-index randint to preserve RNG-progression determinism
+            # with the original implementation.
             for i in bad:
                 random_nodes[i] = int(torch.randint(0, num_nodes, (1,), dtype=torch.long).item())
             negative_edges[1, corrupt_tail_mask] = random_nodes[corrupt_tail_mask]
@@ -128,12 +142,16 @@ class CompGCNAuditModel(nn.Module):
         self.node_projection = nn.Linear(in_channels, hidden_channels)
         self.rel_emb = nn.Embedding(num_relations, hidden_channels)
         self.layer1 = CompGCNLayer(hidden_channels, hidden_channels)
+        self.norm1 = nn.LayerNorm(hidden_channels)
         self.layer2 = CompGCNLayer(hidden_channels, hidden_channels)
+        self.norm2 = nn.LayerNorm(hidden_channels)
+        self.layer3 = CompGCNLayer(hidden_channels, hidden_channels)
 
     def encode(self, x: torch.Tensor, edge_index: torch.Tensor, edge_type: torch.Tensor) -> torch.Tensor:
         x = self.node_projection(x)
-        x = self.dropout(F.relu(self.layer1(x, edge_index, edge_type, self.rel_emb.weight)))
-        x = self.layer2(x, edge_index, edge_type, self.rel_emb.weight)
+        x = self.dropout(F.relu(self.norm1(self.layer1(x, edge_index, edge_type, self.rel_emb.weight))))
+        x = self.dropout(F.relu(self.norm2(self.layer2(x, edge_index, edge_type, self.rel_emb.weight))))
+        x = self.layer3(x, edge_index, edge_type, self.rel_emb.weight)
         return self.dropout(x)
 
     def edge_logits(
@@ -259,6 +277,8 @@ def run_audit():
     label_smoothing = Config.COMPGCN_LABEL_SMOOTHING
     pos_target = 1.0 - label_smoothing
     neg_target = label_smoothing
+    loss_mode = Config.COMPGCN_LOSS
+    bpr_margin = Config.COMPGCN_BPR_MARGIN
 
     model = CompGCNAuditModel(
         in_channels=data.x.size(1),
@@ -275,6 +295,7 @@ def run_audit():
         optimizer, mode="max", factor=0.5, patience=5, min_lr=1e-5
     )
     criterion = nn.BCEWithLogitsLoss()
+    logger.info("CompGCN training loss=%s (margin=%s)", loss_mode, bpr_margin)
 
     best_state = copy.deepcopy(model.state_dict())
     best_auc = float("-inf")
@@ -302,11 +323,18 @@ def run_audit():
         )
         neg_logits = model.edge_logits(encoded_nodes, neg_edges, neg_types)
 
-        logits = torch.cat([pos_logits, neg_logits])
-        labels = torch.cat(
-            [torch.full_like(pos_logits, pos_target), torch.full_like(neg_logits, neg_target)]
-        )
-        loss = criterion(logits, labels)
+        if loss_mode == "bpr":
+            # Pairwise: neg_edges = neg_ratio repetitions of pos ordering
+            # (see _sample_negative_edges: list-cat preserves [pos_0..pos_N] grouped by rep)
+            pos_expanded = pos_logits.repeat(neg_ratio)
+            diff = pos_expanded - neg_logits - bpr_margin
+            loss = -F.logsigmoid(diff).mean()
+        else:
+            logits = torch.cat([pos_logits, neg_logits])
+            labels = torch.cat(
+                [torch.full_like(pos_logits, pos_target), torch.full_like(neg_logits, neg_target)]
+            )
+            loss = criterion(logits, labels)
         loss.backward()
         if Config.COMPGCN_GRAD_CLIP > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), Config.COMPGCN_GRAD_CLIP)
@@ -326,6 +354,24 @@ def run_audit():
             best_state = copy.deepcopy(model.state_dict())
             patience_counter = 0
             best_epoch_idx = epoch + 1
+            # Persist best state to disk so partial progress survives Windows
+            # transient PyTorch crashes during long training runs.
+            try:
+                os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+                torch.save(best_state, CHECKPOINT_PATH)
+                with open(CHECKPOINT_META_PATH, "w") as f:
+                    json.dump({
+                        "best_epoch": best_epoch_idx,
+                        "best_auc": float(best_auc),
+                        "train_loss": final_train_loss,
+                        "hidden_channels": Config.COMPGCN_HIDDEN_CHANNELS,
+                        "loss_mode": loss_mode,
+                        "num_relations": num_rels,
+                        "in_channels": int(data.x.size(1)),
+                        "saved_at": _utc_now_iso(),
+                    }, f)
+            except Exception as e:
+                logger.warning("Checkpoint save failed at epoch %s: %s", epoch + 1, e)
         else:
             patience_counter += 1
 
@@ -373,6 +419,8 @@ def run_audit():
             "best_epoch": best_epoch_idx,
             "final_auc_roc": round(final_auc, 4) if final_auc is not None else None,
             "final_mrr": round(final_mrr, 4) if final_mrr is not None else None,
+            "loss_mode": loss_mode,
+            "bpr_margin": bpr_margin,
         }
 
     logger.info(
@@ -382,7 +430,10 @@ def run_audit():
         f"{final_mrr:.4f}" if final_mrr is not None else "unavailable",
     )
 
-    driver = DatabaseManager.get_driver()
+    # Training ran compute-only for many minutes; Aura Free may have dropped the
+    # pooled TCP socket. Force a fresh driver before the write-back to avoid
+    # "connection reset" / session-expired failures on the first sync query.
+    driver = DatabaseManager.refresh()
     audit_completed_at = _utc_now_iso()
 
     with driver.session(database=Config.NEO4J_DATABASE) as session:
@@ -435,6 +486,8 @@ def run_audit():
                 run.label_smoothing = $label_smoothing,
                 run.grad_clip = $grad_clip,
                 run.neg_ratio = $neg_ratio,
+                run.loss = $loss,
+                run.bpr_margin = $bpr_margin,
                 run.auc_roc = $auc_roc,
                 run.mrr = $mrr,
                 run.train_loss = $train_loss
@@ -455,6 +508,8 @@ def run_audit():
             label_smoothing=Config.COMPGCN_LABEL_SMOOTHING,
             grad_clip=Config.COMPGCN_GRAD_CLIP,
             neg_ratio=neg_ratio,
+            loss=loss_mode,
+            bpr_margin=bpr_margin,
             auc_roc=final_auc,
             mrr=final_mrr,
             train_loss=final_train_loss,
@@ -466,6 +521,140 @@ def get_training_history() -> dict:
     """Return the last training run's per-epoch metrics."""
     with _training_history_lock:
         return copy.deepcopy(_training_history)
+
+
+def recover_from_checkpoint() -> dict | None:
+    """Load best_state from disk and sync plausibility scores to Neo4j without retraining.
+
+    Used when a training run crashed partway through but a checkpoint was saved
+    at a previous best-AUC epoch. Returns metrics dict or None if no checkpoint.
+    """
+    from src.db import DatabaseManager
+    from src.gnn_loader import GNNLoader
+
+    if not (os.path.exists(CHECKPOINT_PATH) and os.path.exists(CHECKPOINT_META_PATH)):
+        logger.warning("recover_from_checkpoint: no checkpoint at %s", CHECKPOINT_PATH)
+        return None
+
+    with open(CHECKPOINT_META_PATH) as f:
+        meta = json.load(f)
+    logger.info(
+        "Recovering from checkpoint: epoch=%s auc=%.4f loss=%s saved_at=%s",
+        meta.get("best_epoch"),
+        meta.get("best_auc", 0.0),
+        meta.get("loss_mode"),
+        meta.get("saved_at"),
+    )
+
+    seed = Config.COMPGCN_SEED
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    loader = GNNLoader()
+    result = loader.fetch_graph_data()
+    if not result:
+        logger.error("recover_from_checkpoint: no graph data")
+        return None
+    data, rel_types, _node_id_map = result
+    num_rels = len(rel_types)
+
+    model = CompGCNAuditModel(
+        in_channels=data.x.size(1),
+        hidden_channels=meta.get("hidden_channels", Config.COMPGCN_HIDDEN_CHANNELS),
+        num_relations=num_rels,
+        dropout=Config.COMPGCN_DROPOUT,
+    )
+    best_state = torch.load(CHECKPOINT_PATH, map_location="cpu")
+    model.load_state_dict(best_state)
+    model.eval()
+
+    neg_ratio = max(1, Config.COMPGCN_NEG_RATIO)
+    positive_triples = _build_positive_triples(data)
+    _, val_idx = _split_edge_indices(
+        data.edge_index.size(1), Config.COMPGCN_VALIDATION_SPLIT
+    )
+    with torch.no_grad():
+        encoded_nodes = model.encode(data.x, data.edge_index, data.edge_type)
+        scores = model.edge_scores(encoded_nodes, data.edge_index, data.edge_type)
+        final_auc = _evaluate_auc(model, data, val_idx, neg_ratio, positive_triples)
+        final_mrr = _evaluate_mrr(model, data, val_idx, neg_ratio, positive_triples)
+
+    logger.info(
+        "Checkpoint eval: auc=%s mrr=%s",
+        f"{final_auc:.4f}" if final_auc is not None else "unavailable",
+        f"{final_mrr:.4f}" if final_mrr is not None else "unavailable",
+    )
+
+    driver = DatabaseManager.refresh()
+    audit_run_id = str(uuid.uuid4())
+    audit_completed_at = _utc_now_iso()
+    with driver.session(database=Config.NEO4J_DATABASE) as session:
+        logger.info("Syncing recovered plausibility scores to Neo4j...")
+        updates = []
+        for i in range(data.edge_index.size(1)):
+            updates.append({"rel_id": data.edge_rel_id[i], "score": float(scores[i].item())})
+        batch_size = 500
+        for batch_start in range(0, len(updates), batch_size):
+            batch = updates[batch_start:batch_start + batch_size]
+            session.run(
+                """
+                UNWIND $updates AS update
+                MATCH ()-[r]->()
+                WHERE elementId(r) = update.rel_id
+                SET r.plausibility_score = update.score,
+                    r.audit_score = update.score,
+                    r.experimental_score = update.score,
+                    r.audit_status = 'recovered_checkpoint',
+                    r.audit_mode = 'compgcn',
+                    r.audit_model = 'CompGCNAuditModel',
+                    r.audit_updated_at = $updated_at
+                """,
+                updates=batch,
+                updated_at=audit_completed_at,
+            )
+        session.run(
+            f"""
+            MERGE (run:{Config.AUDIT_RUN_LABEL} {{run_id: $run_id}})
+            SET run.status = 'recovered_checkpoint',
+                run.audit_mode = 'compgcn',
+                run.audit_model = 'CompGCNAuditModel',
+                run.started_at = $saved_at,
+                run.completed_at = $completed_at,
+                run.best_epoch = $best_epoch,
+                run.auc_roc = $auc_roc,
+                run.mrr = $mrr,
+                run.loss = $loss
+            """,
+            run_id=audit_run_id,
+            saved_at=meta.get("saved_at"),
+            completed_at=audit_completed_at,
+            best_epoch=meta.get("best_epoch"),
+            auc_roc=final_auc,
+            mrr=final_mrr,
+            loss=meta.get("loss_mode"),
+        )
+        logger.info("Neo4j recovery sync complete.")
+
+    # Update training history for UI
+    with _training_history_lock:
+        global _training_history
+        _training_history = {
+            "epochs": _training_history.get("epochs", []),
+            "best_epoch": meta.get("best_epoch"),
+            "final_auc_roc": round(final_auc, 4) if final_auc is not None else None,
+            "final_mrr": round(final_mrr, 4) if final_mrr is not None else None,
+            "loss_mode": meta.get("loss_mode"),
+            "recovered": True,
+        }
+
+    return {
+        "best_epoch": meta.get("best_epoch"),
+        "final_auc_roc": final_auc,
+        "final_mrr": final_mrr,
+        "saved_at": meta.get("saved_at"),
+    }
 
 
 if __name__ == "__main__":
