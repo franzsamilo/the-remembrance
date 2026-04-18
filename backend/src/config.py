@@ -61,6 +61,15 @@ class Config:
     # "bpr" (pairwise Bayesian Personalized Ranking -log sigmoid(pos-neg); targets MRR)
     COMPGCN_LOSS = os.getenv("COMPGCN_LOSS", "bce").lower()
     COMPGCN_BPR_MARGIN = float(os.getenv("COMPGCN_BPR_MARGIN", 0.0))
+    # Negative sampling strategy: "uniform" (draw from all nodes) or
+    # "type_aware" (draw only from nodes sharing the corrupted endpoint's
+    # schema label). Type-aware produces harder negatives → better ranking
+    # (MRR), but requires labels fetched by GNNLoader.
+    COMPGCN_NEG_SAMPLING = os.getenv("COMPGCN_NEG_SAMPLING", "type_aware").lower()
+    # AUC-ROC guardrail: if the trained model scores below this on validation,
+    # run_audit skips the Neo4j score write-back so a regressed model never
+    # clobbers production plausibility values. Paper target is 0.95.
+    COMPGCN_AUC_GUARDRAIL = float(os.getenv("COMPGCN_AUC_GUARDRAIL", 0.95))
     LEGAL_NODE_TYPES = _parse_csv_env(
         "LEGAL_NODE_TYPES",
         "__Entity__,Entity,Method,Researcher,Dataset,Concept,Result,Metric",
