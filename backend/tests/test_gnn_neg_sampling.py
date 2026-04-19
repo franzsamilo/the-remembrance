@@ -33,3 +33,68 @@ def test_build_type_pools_drops_singletons():
     node_type = torch.tensor([0, 0, 1], dtype=torch.long)
     pools = _build_type_pools(node_type)
     assert set(pools.keys()) == {0}, "label 1 has only 1 node → dropped"
+
+
+def test_sample_negative_edges_type_aware_preserves_labels():
+    """Every corrupted endpoint must share the original endpoint's label."""
+    from src.gnn_module import _sample_negative_edges, _build_type_pools
+
+    # 20 nodes, 2 labels (10 each).
+    node_type = torch.tensor([0] * 10 + [1] * 10, dtype=torch.long)
+    pools = _build_type_pools(node_type)
+
+    # 5 edges, each connecting a label-0 node to a label-1 node.
+    edge_index = torch.tensor(
+        [[0, 1, 2, 3, 4],
+         [10, 11, 12, 13, 14]],
+        dtype=torch.long,
+    )
+    edge_type = torch.tensor([0, 0, 0, 0, 0], dtype=torch.long)
+
+    torch.manual_seed(42)
+    neg_edges, neg_types = _sample_negative_edges(
+        edge_index, edge_type, num_nodes=20, num_negatives=3,
+        node_type=node_type, type_pools=pools,
+    )
+
+    # Shape: num_negatives * num_edges = 3 * 5 = 15
+    assert neg_edges.size(1) == 15
+    assert neg_types.size(0) == 15
+
+    # For each corrupted edge, check that corrupted-side label matches original.
+    # Original edge i has src_label=0, dst_label=1.
+    for i in range(neg_edges.size(1)):
+        src = neg_edges[0, i].item()
+        dst = neg_edges[1, i].item()
+        # The sampler corrupts either head or tail (not both). So exactly one
+        # endpoint equals the original (for that edge position in the batch).
+        original_col = i % 5
+        orig_src = edge_index[0, original_col].item()
+        orig_dst = edge_index[1, original_col].item()
+        head_corrupted = src != orig_src
+        tail_corrupted = dst != orig_dst
+        # Either head or tail was corrupted (or same node redrawn — allowed,
+        # the positive-triple filter still rejects true triples).
+        if head_corrupted:
+            assert node_type[src].item() == 0, f"corrupted head label mismatch at {i}"
+        if tail_corrupted:
+            assert node_type[dst].item() == 1, f"corrupted tail label mismatch at {i}"
+
+
+def test_sample_negative_edges_uniform_mode_unchanged():
+    """When node_type/type_pools absent, behavior matches pre-existing sampler."""
+    from src.gnn_module import _sample_negative_edges
+
+    edge_index = torch.tensor([[0, 1], [2, 3]], dtype=torch.long)
+    edge_type = torch.tensor([0, 1], dtype=torch.long)
+
+    torch.manual_seed(7)
+    neg_a, _ = _sample_negative_edges(
+        edge_index, edge_type, num_nodes=10, num_negatives=2,
+    )
+    torch.manual_seed(7)
+    neg_b, _ = _sample_negative_edges(
+        edge_index, edge_type, num_nodes=10, num_negatives=2,
+        node_type=None, type_pools=None,
+    )
+    assert torch.equal(neg_a, neg_b), "passing None kwargs must be a no-op"

@@ -81,28 +81,59 @@ def _sample_negative_edges(
     num_nodes: int,
     num_negatives: int = 1,
     positive_triples: set[tuple[int, int, int]] | None = None,
+    node_type: torch.Tensor | None = None,
+    type_pools: dict[int, torch.Tensor] | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Sample negatives by corrupting head or tail. Optionally filter out false negatives."""
+    """Sample negatives by corrupting head or tail.
+
+    When ``node_type`` and ``type_pools`` are both provided, the corrupted
+    endpoint is drawn from the pool of nodes sharing that endpoint's schema
+    label (type-aware / hard negatives). When the label has no pool (rare
+    label, singleton, or sentinel -1), the sampler falls back to uniform
+    corruption for that specific endpoint.
+
+    When ``positive_triples`` is set, (src, dst, rel) matches are rejected
+    and re-sampled up to 20 times per attempt.
+    """
     if edge_index.size(1) == 0:
         return edge_index, edge_type
 
+    type_aware = node_type is not None and type_pools is not None
+
     neg_edges_list = []
     neg_types_list = []
-    # Pre-materialize edge_type once to Python list; per-element .item() inside
-    # the hot inner loop triggers PyTorch SymInt errors / memory faults on
-    # Windows when called ~1.9M times per epoch.
     rel_cpu = edge_type.tolist() if positive_triples is not None else None
+
+    def _draw_replacements(original_nodes: torch.Tensor) -> torch.Tensor:
+        """Vectorized replacement draws: uniform, or pool-indexed per label."""
+        if not type_aware:
+            return torch.randint(0, num_nodes, (original_nodes.size(0),), dtype=torch.long)
+
+        replacements = torch.randint(0, num_nodes, (original_nodes.size(0),), dtype=torch.long)
+        orig_labels = node_type[original_nodes]
+        # For each unique label with a pool, batch-sample that label's entries.
+        for label_id, pool in type_pools.items():
+            mask = orig_labels == label_id
+            n = int(mask.sum().item())
+            if n == 0:
+                continue
+            pick = torch.randint(0, pool.size(0), (n,), dtype=torch.long)
+            replacements[mask] = pool[pick]
+        return replacements
+
     for _ in range(num_negatives):
         negative_edges = edge_index.clone()
         corrupt_tail_mask = torch.rand(edge_index.size(1)) > 0.5
         max_retries = 20
         for attempt in range(max_retries):
-            random_nodes = torch.randint(0, num_nodes, (edge_index.size(1),), dtype=torch.long)
-            negative_edges[1, corrupt_tail_mask] = random_nodes[corrupt_tail_mask]
-            negative_edges[0, ~corrupt_tail_mask] = random_nodes[~corrupt_tail_mask]
+            # Head replacements drawn against the original SOURCE labels,
+            # tail replacements drawn against the original TARGET labels.
+            head_replacements = _draw_replacements(edge_index[0])
+            tail_replacements = _draw_replacements(edge_index[1])
+            negative_edges[1, corrupt_tail_mask] = tail_replacements[corrupt_tail_mask]
+            negative_edges[0, ~corrupt_tail_mask] = head_replacements[~corrupt_tail_mask]
             if positive_triples is None:
                 break
-            # Batch convert each row once per attempt (instead of per-index .item())
             srcs = negative_edges[0].tolist()
             dsts = negative_edges[1].tolist()
             bad = [
@@ -112,12 +143,34 @@ def _sample_negative_edges(
             ]
             if not bad:
                 break
-            # Keep per-index randint to preserve RNG-progression determinism
-            # with the original implementation.
-            for i in bad:
-                random_nodes[i] = int(torch.randint(0, num_nodes, (1,), dtype=torch.long).item())
-            negative_edges[1, corrupt_tail_mask] = random_nodes[corrupt_tail_mask]
-            negative_edges[0, ~corrupt_tail_mask] = random_nodes[~corrupt_tail_mask]
+            # Re-sample only the bad indices, honoring type_aware if active.
+            if type_aware:
+                for i in bad:
+                    if corrupt_tail_mask[i]:
+                        orig = int(edge_index[1, i].item())
+                        label_id = int(node_type[orig].item())
+                        pool = type_pools.get(label_id)
+                        if pool is not None and pool.size(0) >= 1:
+                            new = int(pool[torch.randint(0, pool.size(0), (1,)).item()].item())
+                        else:
+                            new = int(torch.randint(0, num_nodes, (1,)).item())
+                        negative_edges[1, i] = new
+                    else:
+                        orig = int(edge_index[0, i].item())
+                        label_id = int(node_type[orig].item())
+                        pool = type_pools.get(label_id)
+                        if pool is not None and pool.size(0) >= 1:
+                            new = int(pool[torch.randint(0, pool.size(0), (1,)).item()].item())
+                        else:
+                            new = int(torch.randint(0, num_nodes, (1,)).item())
+                        negative_edges[0, i] = new
+            else:
+                for i in bad:
+                    new = int(torch.randint(0, num_nodes, (1,), dtype=torch.long).item())
+                    if corrupt_tail_mask[i]:
+                        negative_edges[1, i] = new
+                    else:
+                        negative_edges[0, i] = new
         neg_edges_list.append(negative_edges)
         neg_types_list.append(edge_type.clone())
 
