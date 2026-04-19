@@ -112,3 +112,55 @@ def test_evaluate_mrr_accepts_type_aware_kwargs():
     sig_auc = inspect.signature(_evaluate_auc)
     assert "node_type" in sig_auc.parameters
     assert "type_pools" in sig_auc.parameters
+
+
+def test_auc_guardrail_skips_neo4j_sync(monkeypatch):
+    """If final_auc < Config.COMPGCN_AUC_GUARDRAIL, run_audit must not write scores."""
+    from unittest.mock import MagicMock
+    import src.gnn_module as gnn_module
+    from src.config import Config
+
+    # Build a trivial PyG-like Data object with node_type so the label-aware
+    # path exercises cleanly.
+    data = MagicMock()
+    data.x = torch.randn(6, 4)
+    data.edge_index = torch.tensor([[0, 1, 2, 3], [1, 2, 3, 4]], dtype=torch.long)
+    data.edge_type = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+    data.node_type = torch.tensor([0, 0, 1, 1, 0, 1], dtype=torch.long)
+    data.edge_rel_id = ["r0", "r1", "r2", "r3"]
+
+    fake_loader = MagicMock()
+    fake_loader.fetch_graph_data.return_value = (data, {"USES": 0, "PROPOSES": 1}, {}, {"A": 0, "B": 1})
+    # run_audit does `from src.gnn_loader import GNNLoader` at call time, so
+    # we must patch the source module's attribute, not gnn_module's.
+    import src.gnn_loader as gnn_loader_module
+    monkeypatch.setattr(gnn_loader_module, "GNNLoader", lambda: fake_loader, raising=False)
+
+    # Force _evaluate_auc to return a regressed value below the guardrail.
+    monkeypatch.setattr(gnn_module, "_evaluate_auc", lambda *a, **kw: 0.50)
+    monkeypatch.setattr(gnn_module, "_evaluate_mrr", lambda *a, **kw: 0.90)
+
+    # Make training a no-op (1 epoch, trivial loss).
+    monkeypatch.setattr(Config, "COMPGCN_EPOCHS", 1, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_PATIENCE", 1, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_AUC_GUARDRAIL", 0.95, raising=False)
+
+    # Mock the Neo4j driver so we can assert the score-sync UNWIND was NOT called.
+    session = MagicMock()
+    session.__enter__ = lambda self_: self_
+    session.__exit__ = lambda *a: False
+    driver = MagicMock()
+    driver.session.return_value = session
+    from src.db import DatabaseManager
+    monkeypatch.setattr(DatabaseManager, "refresh", staticmethod(lambda: driver))
+
+    gnn_module.run_audit()
+
+    # Assert the UNWIND plausibility-sync query was NOT among the calls.
+    sync_calls = [c for c in session.run.call_args_list
+                  if "plausibility_score" in str(c)]
+    assert len(sync_calls) == 0, "guardrail must block plausibility_score write-back"
+
+    # But the AuditRun node should still be written with status aborted_auc_guardrail.
+    assert any("MERGE" in str(c) for c in session.run.call_args_list), \
+        "AuditRun metadata must still be persisted when guardrail trips"
