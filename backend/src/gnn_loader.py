@@ -68,16 +68,30 @@ class GNNLoader:
                 schema_labels = sorted(set(Config.LEGAL_NODE_TYPES))
                 label_to_id = {name: i for i, name in enumerate(schema_labels)}
 
+                # Every node in this KG carries a generic container label
+                # (`__Entity__` / `Entity`) alongside its semantic type (e.g.
+                # `Concept`, `Method`). Prefer the semantic label so pools
+                # actually partition by meaning — otherwise ~all nodes collapse
+                # into the `__Entity__` pool and type-aware sampling degrades
+                # to uniform.
+                GENERIC_LABELS = {"__Entity__", "Entity"}
+
                 node_id_map = {}
                 nodes = []
                 node_type_list: list = []
                 for i, nid in enumerate(sorted(node_ids)):
                     node_id_map[nid] = i
                     nodes.append(id_to_emb.get(nid, zero_vec))
-                    # Pick first label that's in the schema. Sentinel -1 when
-                    # no match — sampler falls back to uniform for those.
                     raw_labels = id_to_labels.get(nid, [])
-                    primary = next((lbl for lbl in raw_labels if lbl in label_to_id), None)
+                    semantic = next(
+                        (lbl for lbl in raw_labels
+                         if lbl in label_to_id and lbl not in GENERIC_LABELS),
+                        None,
+                    )
+                    primary = semantic or next(
+                        (lbl for lbl in raw_labels if lbl in label_to_id),
+                        None,
+                    )
                     node_type_list.append(label_to_id[primary] if primary is not None else -1)
 
                 rel_types = {}

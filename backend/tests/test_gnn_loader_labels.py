@@ -66,3 +66,44 @@ def test_fetch_graph_data_returns_node_type_and_label_map(fake_neo4j_session):
     # Known-label nodes get valid pool ids
     assert data.node_type[node_id_map["n1"]].item() == label_to_id["Researcher"]
     assert data.node_type[node_id_map["n2"]].item() == label_to_id["Method"]
+
+
+def test_semantic_label_preferred_over_generic_entity():
+    """When a node has both __Entity__ and a semantic label, pick the semantic one."""
+    import os
+    os.environ.setdefault("NEO4J_URI", "bolt://localhost:7687")
+    os.environ.setdefault("NEO4J_PASSWORD", "test")
+    os.environ.setdefault("GOOGLE_API_KEY", "test-key")
+
+    session = MagicMock()
+    rel_records = [
+        {"rel_id": "r1", "source": "a", "target": "b", "type": "USES"},
+    ]
+    emb_records = [
+        {"id": "a", "embedding": [0.1] * 768},
+        {"id": "b", "embedding": [0.2] * 768},
+    ]
+    # Real-world Neo4j ordering: generic container labels listed before semantic
+    # labels. Loader must pick the semantic one.
+    label_records = [
+        {"id": "a", "labels": ["__KGBuilder__", "__Entity__", "Concept"]},
+        {"id": "b", "labels": ["__KGBuilder__", "Entity", "__Entity__", "Researcher"]},
+    ]
+    session.run.side_effect = [rel_records, emb_records, label_records]
+    session.__enter__ = lambda self_: self_
+    session.__exit__ = lambda *a: False
+
+    from src.gnn_loader import GNNLoader
+    driver = MagicMock()
+    driver.session.return_value = session
+
+    with patch("src.gnn_loader.DatabaseManager.get_driver", return_value=driver):
+        loader = GNNLoader()
+        result = loader.fetch_graph_data()
+
+    assert result is not None
+    data, _rel_types, node_id_map, label_to_id = result
+    assert data.node_type[node_id_map["a"]].item() == label_to_id["Concept"], \
+        "Concept must win over __Entity__"
+    assert data.node_type[node_id_map["b"]].item() == label_to_id["Researcher"], \
+        "Researcher must win over Entity/__Entity__"
