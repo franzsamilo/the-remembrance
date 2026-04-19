@@ -257,7 +257,15 @@ def _build_positive_triples(data) -> set[tuple[int, int, int]]:
     return triples
 
 
-def _evaluate_auc(model: CompGCNAuditModel, data, edge_indices: torch.Tensor, neg_ratio: int = 1, positive_triples: set[tuple[int, int, int]] | None = None) -> float | None:
+def _evaluate_auc(
+    model: CompGCNAuditModel,
+    data,
+    edge_indices: torch.Tensor,
+    neg_ratio: int = 1,
+    positive_triples: set[tuple[int, int, int]] | None = None,
+    node_type: torch.Tensor | None = None,
+    type_pools: dict[int, torch.Tensor] | None = None,
+) -> float | None:
     if edge_indices.numel() == 0:
         return None
 
@@ -276,6 +284,8 @@ def _evaluate_auc(model: CompGCNAuditModel, data, edge_indices: torch.Tensor, ne
         data.x.size(0),
         num_negatives=neg_ratio,
         positive_triples=positive_triples,
+        node_type=node_type,
+        type_pools=type_pools,
     )
     neg_logits = model.edge_logits(encoded_nodes, neg_edges, neg_types)
     labels = torch.cat([torch.ones_like(pos_logits), torch.zeros_like(neg_logits)])
@@ -283,8 +293,16 @@ def _evaluate_auc(model: CompGCNAuditModel, data, edge_indices: torch.Tensor, ne
     return _compute_auc_roc(labels, probabilities)
 
 
-def _evaluate_mrr(model: CompGCNAuditModel, data, edge_indices: torch.Tensor, neg_ratio: int = 5, positive_triples: set[tuple[int, int, int]] | None = None) -> float | None:
-    """Mean Reciprocal Rank: for each positive edge, rank it among negatives; MRR = mean(1/rank)."""
+def _evaluate_mrr(
+    model: CompGCNAuditModel,
+    data,
+    edge_indices: torch.Tensor,
+    neg_ratio: int = 5,
+    positive_triples: set[tuple[int, int, int]] | None = None,
+    node_type: torch.Tensor | None = None,
+    type_pools: dict[int, torch.Tensor] | None = None,
+) -> float | None:
+    """Mean Reciprocal Rank: for each positive edge, rank it among negatives."""
     if edge_indices.numel() == 0:
         return None
 
@@ -301,7 +319,13 @@ def _evaluate_mrr(model: CompGCNAuditModel, data, edge_indices: torch.Tensor, ne
         pos_logit = model.edge_logits(encoded_nodes, pos_edge, pos_type)
 
         neg_edges, neg_types = _sample_negative_edges(
-            pos_edge, pos_type, data.x.size(0), num_negatives=max(neg_ratio, 5), positive_triples=positive_triples
+            pos_edge,
+            pos_type,
+            data.x.size(0),
+            num_negatives=max(neg_ratio, 5),
+            positive_triples=positive_triples,
+            node_type=node_type,
+            type_pools=type_pools,
         )
         neg_logits = model.edge_logits(encoded_nodes, neg_edges, neg_types)
 

@@ -98,3 +98,17 @@ def test_sample_negative_edges_uniform_mode_unchanged():
         node_type=None, type_pools=None,
     )
     assert torch.equal(neg_a, neg_b), "passing None kwargs must be a no-op"
+
+
+def test_evaluate_mrr_accepts_type_aware_kwargs():
+    """_evaluate_mrr must accept node_type/type_pools and pass them through."""
+    import inspect
+    from src.gnn_module import _evaluate_mrr, _evaluate_auc
+
+    sig_mrr = inspect.signature(_evaluate_mrr)
+    assert "node_type" in sig_mrr.parameters
+    assert "type_pools" in sig_mrr.parameters
+
+    sig_auc = inspect.signature(_evaluate_auc)
+    assert "node_type" in sig_auc.parameters
+    assert "type_pools" in sig_auc.parameters
