@@ -750,7 +750,7 @@ def recover_from_checkpoint() -> dict | None:
     if not result:
         logger.error("recover_from_checkpoint: no graph data")
         return None
-    data, rel_types, _node_id_map = result
+    data, rel_types, _node_id_map, _label_to_id = result
     num_rels = len(rel_types)
 
     model = CompGCNAuditModel(
@@ -768,16 +768,29 @@ def recover_from_checkpoint() -> dict | None:
     _, val_idx = _split_edge_indices(
         data.edge_index.size(1), Config.COMPGCN_VALIDATION_SPLIT
     )
+    type_pools = _build_type_pools(data.node_type)
     with torch.no_grad():
         encoded_nodes = model.encode(data.x, data.edge_index, data.edge_type)
         scores = model.edge_scores(encoded_nodes, data.edge_index, data.edge_type)
-        final_auc = _evaluate_auc(model, data, val_idx, neg_ratio, positive_triples)
-        final_mrr = _evaluate_mrr(model, data, val_idx, neg_ratio, positive_triples)
+        final_auc = _evaluate_auc(
+            model, data, val_idx, neg_ratio, positive_triples,
+            node_type=data.node_type, type_pools=type_pools,
+        )
+        mrr_uniform = _evaluate_mrr(
+            model, data, val_idx, neg_ratio, positive_triples,
+            node_type=None, type_pools=None,
+        )
+        mrr_type_aware = _evaluate_mrr(
+            model, data, val_idx, neg_ratio, positive_triples,
+            node_type=data.node_type, type_pools=type_pools,
+        )
+        final_mrr = mrr_type_aware if mrr_type_aware is not None else mrr_uniform
 
     logger.info(
-        "Checkpoint eval: auc=%s mrr=%s",
+        "Checkpoint eval: auc=%s mrr_uniform=%s mrr_type_aware=%s",
         f"{final_auc:.4f}" if final_auc is not None else "unavailable",
-        f"{final_mrr:.4f}" if final_mrr is not None else "unavailable",
+        f"{mrr_uniform:.4f}" if mrr_uniform is not None else "unavailable",
+        f"{mrr_type_aware:.4f}" if mrr_type_aware is not None else "unavailable",
     )
 
     driver = DatabaseManager.refresh()
@@ -818,6 +831,8 @@ def recover_from_checkpoint() -> dict | None:
                 run.best_epoch = $best_epoch,
                 run.auc_roc = $auc_roc,
                 run.mrr = $mrr,
+                run.mrr_uniform = $mrr_uniform,
+                run.mrr_type_aware = $mrr_type_aware,
                 run.loss = $loss
             """,
             run_id=audit_run_id,
@@ -826,6 +841,8 @@ def recover_from_checkpoint() -> dict | None:
             best_epoch=meta.get("best_epoch"),
             auc_roc=final_auc,
             mrr=final_mrr,
+            mrr_uniform=mrr_uniform,
+            mrr_type_aware=mrr_type_aware,
             loss=meta.get("loss_mode"),
         )
         logger.info("Neo4j recovery sync complete.")
@@ -838,6 +855,8 @@ def recover_from_checkpoint() -> dict | None:
             "best_epoch": meta.get("best_epoch"),
             "final_auc_roc": round(final_auc, 4) if final_auc is not None else None,
             "final_mrr": round(final_mrr, 4) if final_mrr is not None else None,
+            "mrr_uniform": round(mrr_uniform, 4) if mrr_uniform is not None else None,
+            "mrr_type_aware": round(mrr_type_aware, 4) if mrr_type_aware is not None else None,
             "loss_mode": meta.get("loss_mode"),
             "recovered": True,
         }
@@ -846,6 +865,8 @@ def recover_from_checkpoint() -> dict | None:
         "best_epoch": meta.get("best_epoch"),
         "final_auc_roc": final_auc,
         "final_mrr": final_mrr,
+        "mrr_uniform": mrr_uniform,
+        "mrr_type_aware": mrr_type_aware,
         "saved_at": meta.get("saved_at"),
     }
 
