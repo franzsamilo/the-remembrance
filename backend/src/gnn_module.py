@@ -356,7 +356,7 @@ def run_audit():
         logger.error("Audit failed: No graph data found.")
         return
 
-    data, rel_types, _node_id_map = result
+    data, rel_types, _node_id_map, label_to_id = result
     num_rels = len(rel_types)
     if num_rels == 0:
         logger.warning("Audit skipped: graph has no auditable relationship types.")
@@ -369,6 +369,24 @@ def run_audit():
         Config.COMPGCN_VALIDATION_SPLIT,
     )
     positive_triples = _build_positive_triples(data)
+
+    neg_sampling_mode = Config.COMPGCN_NEG_SAMPLING
+    node_type_tensor = data.node_type if neg_sampling_mode == "type_aware" else None
+    type_pools = _build_type_pools(data.node_type) if neg_sampling_mode == "type_aware" else None
+
+    if neg_sampling_mode == "type_aware":
+        pool_sizes = {
+            lbl: int(type_pools.get(i, torch.empty(0)).numel())
+            for lbl, i in label_to_id.items()
+        }
+        logger.info("Type-aware negative sampling active. Pool sizes: %s", pool_sizes)
+        if not type_pools:
+            logger.warning("No label pools built — falling back to uniform sampling.")
+            node_type_tensor = None
+            type_pools = None
+    else:
+        pool_sizes = {}
+        logger.info("Uniform negative sampling active.")
 
     neg_ratio = max(1, Config.COMPGCN_NEG_RATIO)
     label_smoothing = Config.COMPGCN_LABEL_SMOOTHING
@@ -417,6 +435,8 @@ def run_audit():
             data.x.size(0),
             num_negatives=neg_ratio,
             positive_triples=positive_triples,
+            node_type=node_type_tensor,
+            type_pools=type_pools,
         )
         neg_logits = model.edge_logits(encoded_nodes, neg_edges, neg_types)
 
@@ -440,9 +460,15 @@ def run_audit():
 
         model.eval()
         with torch.no_grad():
-            current_auc = _evaluate_auc(model, data, val_idx, neg_ratio, positive_triples)
+            current_auc = _evaluate_auc(
+                model, data, val_idx, neg_ratio, positive_triples,
+                node_type=node_type_tensor, type_pools=type_pools,
+            )
         if current_auc is None:
-            current_auc = _evaluate_auc(model, data, train_idx, neg_ratio, positive_triples)
+            current_auc = _evaluate_auc(
+                model, data, train_idx, neg_ratio, positive_triples,
+                node_type=node_type_tensor, type_pools=type_pools,
+            )
 
         if current_auc is not None:
             scheduler.step(current_auc)
@@ -500,12 +526,54 @@ def run_audit():
     with torch.no_grad():
         encoded_nodes = model.encode(data.x, data.edge_index, data.edge_type)
         plausibility_scores = model.edge_scores(encoded_nodes, data.edge_index, data.edge_type)
-        final_auc = _evaluate_auc(model, data, val_idx, neg_ratio, positive_triples)
+
+        final_auc = _evaluate_auc(
+            model, data, val_idx, neg_ratio, positive_triples,
+            node_type=node_type_tensor, type_pools=type_pools,
+        )
         if final_auc is None:
-            final_auc = _evaluate_auc(model, data, train_idx, neg_ratio, positive_triples)
-        final_mrr = _evaluate_mrr(model, data, val_idx, neg_ratio, positive_triples)
-        if final_mrr is None:
-            final_mrr = _evaluate_mrr(model, data, train_idx, neg_ratio, positive_triples)
+            final_auc = _evaluate_auc(
+                model, data, train_idx, neg_ratio, positive_triples,
+                node_type=node_type_tensor, type_pools=type_pools,
+            )
+
+        # Dual MRR eval: uniform (apples-to-apples vs Run 6 baseline) and
+        # type-aware (intended metric). Both run regardless of training mode
+        # so the thesis table shows the full story.
+        type_pools_for_eval = _build_type_pools(data.node_type)
+
+        mrr_uniform = _evaluate_mrr(
+            model, data, val_idx, neg_ratio, positive_triples,
+            node_type=None, type_pools=None,
+        )
+        if mrr_uniform is None:
+            mrr_uniform = _evaluate_mrr(
+                model, data, train_idx, neg_ratio, positive_triples,
+                node_type=None, type_pools=None,
+            )
+
+        mrr_type_aware = _evaluate_mrr(
+            model, data, val_idx, neg_ratio, positive_triples,
+            node_type=data.node_type, type_pools=type_pools_for_eval,
+        )
+        if mrr_type_aware is None:
+            mrr_type_aware = _evaluate_mrr(
+                model, data, train_idx, neg_ratio, positive_triples,
+                node_type=data.node_type, type_pools=type_pools_for_eval,
+            )
+
+        # Pick headline MRR based on training mode: if trained type-aware,
+        # the type-aware MRR is what we ship; if trained uniform, uniform.
+        final_mrr = mrr_type_aware if neg_sampling_mode == "type_aware" else mrr_uniform
+
+    auc_guardrail = Config.COMPGCN_AUC_GUARDRAIL
+    guardrail_tripped = final_auc is not None and final_auc < auc_guardrail
+    if guardrail_tripped:
+        logger.warning(
+            "AUC guardrail TRIPPED: final_auc=%.4f < threshold %.4f. "
+            "Skipping Neo4j score write-back to protect production plausibility values.",
+            final_auc, auc_guardrail,
+        )
 
     # Store training history for UI
     with _training_history_lock:
@@ -516,15 +584,25 @@ def run_audit():
             "best_epoch": best_epoch_idx,
             "final_auc_roc": round(final_auc, 4) if final_auc is not None else None,
             "final_mrr": round(final_mrr, 4) if final_mrr is not None else None,
+            "mrr_uniform": round(mrr_uniform, 4) if mrr_uniform is not None else None,
+            "mrr_type_aware": round(mrr_type_aware, 4) if mrr_type_aware is not None else None,
             "loss_mode": loss_mode,
             "bpr_margin": bpr_margin,
+            "neg_sampling": neg_sampling_mode,
+            "label_pool_sizes": pool_sizes,
+            "auc_guardrail": auc_guardrail,
+            "guardrail_tripped": guardrail_tripped,
         }
 
     logger.info(
-        "CompGCN audit completed for %s relationships with auc_roc=%s mrr=%s",
+        "CompGCN audit completed for %s relationships: auc_roc=%s, "
+        "mrr_uniform=%s, mrr_type_aware=%s, neg_sampling=%s, guardrail_tripped=%s",
         len(plausibility_scores),
         f"{final_auc:.4f}" if final_auc is not None else "unavailable",
-        f"{final_mrr:.4f}" if final_mrr is not None else "unavailable",
+        f"{mrr_uniform:.4f}" if mrr_uniform is not None else "unavailable",
+        f"{mrr_type_aware:.4f}" if mrr_type_aware is not None else "unavailable",
+        neg_sampling_mode,
+        guardrail_tripped,
     )
 
     # Training ran compute-only for many minutes; Aura Free may have dropped the
@@ -534,38 +612,45 @@ def run_audit():
     audit_completed_at = _utc_now_iso()
 
     with driver.session(database=Config.NEO4J_DATABASE) as session:
-        logger.info("Syncing CompGCN plausibility scores to Neo4j...")
-        # Batch update all scores in a single query instead of N+1 individual calls
-        updates = []
-        for i in range(data.edge_index.size(1)):
-            updates.append({
-                "rel_id": data.edge_rel_id[i],
-                "score": float(plausibility_scores[i].item()),
-            })
-        batch_size = 500
-        for batch_start in range(0, len(updates), batch_size):
-            batch = updates[batch_start:batch_start + batch_size]
-            session.run(
-                """
-                UNWIND $updates AS update
-                MATCH ()-[r]->()
-                WHERE elementId(r) = update.rel_id
-                SET r.plausibility_score = update.score,
-                    r.audit_score = update.score,
-                    r.experimental_score = update.score,
-                    r.audit_status = 'trained_experimental',
-                    r.audit_mode = 'compgcn',
-                    r.audit_model = 'CompGCNAuditModel',
-                    r.audit_updated_at = $updated_at
-                """,
-                updates=batch,
-                updated_at=audit_completed_at,
+        if guardrail_tripped:
+            logger.warning(
+                "Neo4j plausibility write-back SKIPPED due to AUC guardrail. "
+                "AuditRun recorded as aborted_auc_guardrail."
             )
+            audit_status = "aborted_auc_guardrail"
+        else:
+            logger.info("Syncing CompGCN plausibility scores to Neo4j...")
+            audit_status = "trained_experimental"
+            updates = []
+            for i in range(data.edge_index.size(1)):
+                updates.append({
+                    "rel_id": data.edge_rel_id[i],
+                    "score": float(plausibility_scores[i].item()),
+                })
+            batch_size = 500
+            for batch_start in range(0, len(updates), batch_size):
+                batch = updates[batch_start:batch_start + batch_size]
+                session.run(
+                    """
+                    UNWIND $updates AS update
+                    MATCH ()-[r]->()
+                    WHERE elementId(r) = update.rel_id
+                    SET r.plausibility_score = update.score,
+                        r.audit_score = update.score,
+                        r.experimental_score = update.score,
+                        r.audit_status = 'trained_experimental',
+                        r.audit_mode = 'compgcn',
+                        r.audit_model = 'CompGCNAuditModel',
+                        r.audit_updated_at = $updated_at
+                    """,
+                    updates=batch,
+                    updated_at=audit_completed_at,
+                )
 
         session.run(
             f"""
             MERGE (run:{Config.AUDIT_RUN_LABEL} {{run_id: $run_id}})
-            SET run.status = 'trained_experimental',
+            SET run.status = $status,
                 run.audit_mode = 'compgcn',
                 run.audit_model = 'CompGCNAuditModel',
                 run.started_at = $started_at,
@@ -585,11 +670,17 @@ def run_audit():
                 run.neg_ratio = $neg_ratio,
                 run.loss = $loss,
                 run.bpr_margin = $bpr_margin,
+                run.neg_sampling = $neg_sampling,
+                run.label_pool_sizes = $label_pool_sizes,
+                run.auc_guardrail_min = $auc_guardrail_min,
                 run.auc_roc = $auc_roc,
                 run.mrr = $mrr,
+                run.mrr_uniform = $mrr_uniform,
+                run.mrr_type_aware = $mrr_type_aware,
                 run.train_loss = $train_loss
             """,
             run_id=audit_run_id,
+            status=audit_status,
             started_at=audit_started_at,
             completed_at=audit_completed_at,
             audited_relationships=int(data.edge_index.size(1)),
@@ -607,11 +698,16 @@ def run_audit():
             neg_ratio=neg_ratio,
             loss=loss_mode,
             bpr_margin=bpr_margin,
+            neg_sampling=neg_sampling_mode,
+            label_pool_sizes=json.dumps(pool_sizes),
+            auc_guardrail_min=auc_guardrail,
             auc_roc=final_auc,
             mrr=final_mrr,
+            mrr_uniform=mrr_uniform,
+            mrr_type_aware=mrr_type_aware,
             train_loss=final_train_loss,
         )
-        logger.info("Neo4j CompGCN audit sync complete.")
+        logger.info("Neo4j CompGCN audit sync complete (status=%s).", audit_status)
 
 
 def get_training_history() -> dict:
