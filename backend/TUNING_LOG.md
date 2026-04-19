@@ -515,26 +515,118 @@ achievable with BPR scores.
 
 ---
 
-## Overall Scoreboard (as of 2026-04-18)
+## Run 7 — 2026-04-19: BPR + Type-Aware Negative Sampling (MRR Closure Attempt)
 
-| Metric | Paper Target | Baseline | BCE (tuned) | BPR (tuned) | Winner |
-|--------|--------------|----------|-------------|-------------|--------|
-| AUC-ROC | > 0.95 | 0.9397 | 0.9646 | **0.9688** | BPR ✅ |
-| MRR | > 0.95 | 0.8134 | 0.8366 | **0.8860** | BPR (still short) |
-| Grounding | > 0.98 | 0.839 | 0.984–1.000 (τ=0.30) | **0.987** (τ=0.95) | BPR at paper τ ✅ |
-| Faithfulness | high | 0.787 | 0.80–1.00 | **0.979** | BPR ✅ |
+**Goal.** Close the final open KPI. Run 6 (BPR + uniform negatives) hit AUC 0.9688 and grounding 0.987 but MRR plateaued at 0.886. Swap uniform negative corruption for schema-label-matched corruption so every negative is a same-type candidate — directly attacking the ranking-metric gap.
 
-**Recommended configuration for thesis defense:**
+**Change.** `backend/src/gnn_loader.py` now fetches `labels(n)` per node and emits `data.node_type`. Loader prefers semantic labels (`Concept`, `Method`, `Researcher`, …) over generic container labels (`__Entity__`, `Entity`) so pools actually partition by meaning. `_sample_negative_edges` accepts `node_type`/`type_pools` kwargs; when both are set, corrupted endpoints are drawn from per-label node pools. `run_audit` builds pools once at the top and threads them through training + eval. Post-training MRR is evaluated twice (uniform + type-aware) for apples-to-apples comparison against Run 6. An AUC guardrail (`COMPGCN_AUC_GUARDRAIL=0.95`) blocks Neo4j score sync if calibration regressed.
+
+**Run config (env).**
 - `COMPGCN_LOSS=bpr`
 - `COMPGCN_BPR_MARGIN=0.0`
+- `COMPGCN_NEG_SAMPLING=type_aware`
+- `COMPGCN_AUC_GUARDRAIL=0.95`
+- All other hyperparameters identical to Run 6.
+
+**Label pool sizes.**
+
+| Label | Pool size |
+|-------|-----------|
+| Concept | 2804 |
+| Entity | 1410 |
+| Method | 217 |
+| Researcher | 208 |
+| Result | 203 |
+| Dataset | 50 |
+| Metric | 53 |
+| \_\_Entity\_\_ | 10 |
+
+Pool distribution is severely skewed: `Concept` covers 54% of labeled nodes. Rare-type pools (`Metric`=53, `Dataset`=50) are barely larger than a single training batch.
+
+**Results.**
+
+| Metric | Run 6 (BPR uniform) | Run 7 (BPR + type-aware) | Δ | Target | Status |
+|--------|---------------------|---------------------------|----|--------|--------|
+| AUC-ROC | 0.9688 | 0.9662 | −0.0026 | > 0.95 | PASS (guardrail held) |
+| MRR (uniform eval) | 0.8860 | 0.8873 | +0.0013 | > 0.95 | no meaningful lift |
+| MRR (type-aware eval) | — | 0.8755 | — | > 0.95 | lower by design (harder negs) |
+| Grounding @ τ=0.95 | 0.9867 | 0.9884 | +0.0017 | > 0.98 | PASS |
+| Faithfulness @ τ=0.95 (full-stack) | 0.9789 | 0.9073 | −0.0716 | high | regression |
+| Faithfulness @ τ=0.95 (sweep re-eval) | 0.9789 | 0.9473 | −0.0316 | high | regression |
+| Training wall-clock | 1.8 min | 4.04 min | +2.2 min | — | slower (per-label indexing) |
+| Best epoch | 168 | 163 | — | — | — |
+| Early stop | 198 | 193 | — | — | — |
+
+Faithfulness shows two numbers because LLM-judge variance between the full-stack pass and the sweep pass at τ=0.95 was material (0.91 vs 0.95). Both are regressions vs Run 6's 0.979.
+
+**Threshold sweep.**
+
+| τ | Grounding | Faithfulness |
+|---|-----------|--------------|
+| 0.30 | 0.981 | 0.924 |
+| 0.50 | 0.949 | 0.866 |
+| 0.85 | 0.959 | 0.921 |
+| **0.95** | **0.988** | **0.947** |
+
+Grounding is still maximized at τ = 0.95, consistent with Run 6 — the GNN-validated filter still functions correctly.
+
+**Interpretation.** Type-aware negative sampling failed to lift MRR on this corpus. Three independent reasons compound:
+
+1. **Label-distribution skew.** 54% of labeled nodes are `Concept`. For `Concept`-headed edges the corrupted tail is drawn from a 2804-node pool — already so large it's effectively uniform. The sampler never produces *hard* negatives where the intervention would matter.
+2. **Rare-type pool underflow.** `Metric` (53) and `Dataset` (50) pools are smaller than a training batch. Negatives for those labels contribute high per-sample variance but few distinct contrasting examples.
+3. **MRR metric geometry.** Under type-aware eval the positive must rank against same-type negatives — a strictly harder test. The drop from 0.887 (uniform eval) to 0.876 (type-aware eval) of the *same model* is the measurement-difficulty effect, not a model regression.
+
+The AUC guardrail held (0.9662 ≥ 0.95), so scores were synced. Grounding nudged up (+0.002). Faithfulness regressed — likely because the different plausibility-score distribution (avg 0.988 vs Run 6's 0.990) alters which triplets pass τ = 0.95 and thus which context the generator sees. A single-seed single-sample LLM-judge delta of 0.05–0.07 is within noise; not a definitive regression, but not a win either.
+
+**Headline.** Type-aware sampling is implementation-complete and guardrail-protected; on this corpus it does not close the MRR gap. 3 of 4 paper KPIs remain met (AUC, Grounding, Faithfulness ≥ 0.9). MRR stays at ~0.88.
+
+**Why ship it anyway.** The intervention is architecturally correct, disabled by default is a one-env-var flip, and it surfaces label-distribution as the next lever. The failed lift motivates future work (self-adversarial negatives, per-relation-type pools, label-distribution-aware reweighting) with a clean ablation baseline.
+
+**Thesis Chapter 4 addition.**
+
+| Run | Loss | Neg. sampling | AUC | MRR (uniform eval) | MRR (type-aware eval) | Grounding |
+|-----|------|---------------|-----|--------------------|-----------------------|-----------|
+| 4 (BCE baseline) | BCE | Uniform | 0.9502 | 0.8134 | — | — |
+| 6 (BPR) | BPR | Uniform | 0.9688 | 0.8860 | — | 0.987 |
+| 7 (BPR + type-aware) | BPR | Same-label | 0.9662 | 0.8873 | 0.8755 | 0.988 |
+
+**Operational notes.**
+- A first attempt (commit before the loader fix) produced pool sizes `{Concept: 0, Method: 0, …, __Entity__: 3545, Entity: 1410}` — semantic labels collapsed into `__Entity__` because `labels(n)` in Neo4j returns generic containers first and the loader picked the first schema match. Fixed in `fix(gnn-loader): prefer semantic labels over generic __Entity__/Entity`. The uncorrected run would have materialized as "type-aware sampling identical to binary `Entity`/`__Entity__` corruption" — misleading to the panel. Covered by `test_semantic_label_preferred_over_generic_entity`.
+- Training is 2.2× slower than Run 6 because per-label sampling does one `randint` + one gather per (label × corrupt-side × attempt) instead of a single `randint` over `num_nodes`. Not blocking at 4 min but worth noting.
+- The AUC guardrail triggered on a mid-training verification run (forced via monkeypatch) and correctly skipped the Neo4j write-back while still persisting the aborted `AuditRun` node — `test_auc_guardrail_skips_neo4j_sync`.
+
+**Reproduction.**
+```bash
+cd backend && python run_logs/type_aware_audit.py
+cd backend && python run_logs/post_audit_eval.py
+```
+
+---
+
+## Overall Scoreboard (as of 2026-04-19)
+
+| Metric | Paper Target | Baseline | BCE (tuned) | BPR (tuned) | BPR + type-aware | Winner |
+|--------|--------------|----------|-------------|-------------|------------------|--------|
+| AUC-ROC | > 0.95 | 0.9397 | 0.9646 | **0.9688** | 0.9662 | BPR ✅ |
+| MRR (uniform eval) | > 0.95 | 0.8134 | 0.8366 | 0.8860 | **0.8873** | BPR+type-aware (still short) |
+| MRR (type-aware eval) | > 0.95 | — | — | — | 0.8755 | new metric, not yet > target |
+| Grounding | > 0.98 | 0.839 | 0.984–1.000 (τ=0.30) | 0.9867 (τ=0.95) | **0.9884** (τ=0.95) | BPR+type-aware ✅ |
+| Faithfulness | high | 0.787 | 0.80–1.00 | **0.979** | 0.907–0.947 | BPR (Run 7 regressed) |
+
+**Recommended configuration for thesis defense (unchanged from Run 6 — type-aware did not win):**
+- `COMPGCN_LOSS=bpr`
+- `COMPGCN_BPR_MARGIN=0.0`
+- `COMPGCN_NEG_SAMPLING=uniform` (default flipped back — Run 7 showed no lift)
 - All other tuned hyperparameters unchanged (3-layer CompGCN + LayerNorm, 300
   epochs, LR 5e-4, patience 30, neg_ratio 15)
 - `GROUNDING_MIN_SCORE=0.95` (paper τ, meaningful with BPR-calibrated scores)
 - `RETRIEVAL_EXPANSION_LIMIT=25`
 
-Three of four paper targets achieved at the paper's stated thresholds. MRR
-remains short; pushing it to 0.95 likely requires type-aware negative sampling
-or self-adversarial negatives (RotatE-style) — scoped as future work.
+Three of four paper targets achieved at the paper's stated thresholds. Run 7
+tested type-aware negatives as the proposed MRR lever and confirmed it does not
+close the gap on this corpus (label distribution 54% `Concept` dominates; rare
+types underflow). Future work: self-adversarial negatives (RotatE-style) or
+per-relation-type sampling with label-distribution reweighting.
 
 ### Key Findings
 1. **Neo4j sync unblocked** — driver-refresh fix + 20× training speedup means

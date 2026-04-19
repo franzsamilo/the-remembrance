@@ -63,9 +63,10 @@ class Config:
     COMPGCN_BPR_MARGIN = float(os.getenv("COMPGCN_BPR_MARGIN", 0.0))
     # Negative sampling strategy: "uniform" (draw from all nodes) or
     # "type_aware" (draw only from nodes sharing the corrupted endpoint's
-    # schema label). Type-aware produces harder negatives → better ranking
-    # (MRR), but requires labels fetched by GNNLoader.
-    COMPGCN_NEG_SAMPLING = os.getenv("COMPGCN_NEG_SAMPLING", "type_aware").lower()
+    # schema label). Default is uniform — Run 7 (2026-04-19) confirmed
+    # type-aware does not lift MRR on this corpus (label skew: 54% Concept).
+    # Opt in via env var if exploring self-adversarial or per-type schemes.
+    COMPGCN_NEG_SAMPLING = os.getenv("COMPGCN_NEG_SAMPLING", "uniform").lower()
     # AUC-ROC guardrail: if the trained model scores below this on validation,
     # run_audit skips the Neo4j score write-back so a regressed model never
     # clobbers production plausibility values. Paper target is 0.95.
