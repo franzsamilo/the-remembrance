@@ -55,6 +55,26 @@ def _split_edge_indices(num_edges: int, validation_split: float) -> tuple[torch.
     return indices[validation_size:], indices[:validation_size]
 
 
+def _build_type_pools(node_type: torch.Tensor) -> dict[int, torch.Tensor]:
+    """Partition node indices by schema-label id.
+
+    Pools with fewer than 2 nodes are dropped — the sampler falls back to
+    uniform sampling for endpoints whose label has no pool. The sentinel
+    label -1 (unlabeled / not-in-schema nodes) is always excluded.
+    """
+    pools: dict[int, torch.Tensor] = {}
+    unique_labels = torch.unique(node_type).tolist()
+    for label_id in unique_labels:
+        if label_id == -1:
+            continue
+        mask = node_type == label_id
+        indices = torch.nonzero(mask, as_tuple=False).squeeze(1)
+        if indices.numel() < 2:
+            continue
+        pools[int(label_id)] = indices.to(torch.long)
+    return pools
+
+
 def _sample_negative_edges(
     edge_index: torch.Tensor,
     edge_type: torch.Tensor,
