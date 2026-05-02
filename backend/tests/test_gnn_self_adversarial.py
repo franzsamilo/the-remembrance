@@ -11,21 +11,31 @@ import torch.nn.functional as F
 
 
 def test_config_exposes_adv_temp_with_zero_default():
-    """COMPGCN_ADV_TEMP must default to 0.0 so Runs 6/7 reproduce."""
-    # Ensure no env override leaks from CI shells.
-    os.environ.pop("COMPGCN_ADV_TEMP", None)
+    """COMPGCN_ADV_TEMP must default to 0.0 so Runs 6/7 reproduce.
 
-    # Re-import config inside the test so the env-pop takes effect for the
-    # value read at module load. We reload the module rather than relying
-    # on a fresh interpreter to avoid Python import caching surprises.
-    import importlib
-    import src.config as config_module
-    importlib.reload(config_module)
-
-    assert hasattr(config_module.Config, "COMPGCN_ADV_TEMP"), \
+    Verified in a subprocess so reloading the config module does not
+    replace the in-process Config class — that would break monkeypatching
+    for downstream tests in this file (see _stub_audit_data tests below).
+    """
+    from src.config import Config
+    assert hasattr(Config, "COMPGCN_ADV_TEMP"), \
         "Config must expose COMPGCN_ADV_TEMP"
-    assert config_module.Config.COMPGCN_ADV_TEMP == 0.0, \
-        "Default α must be 0.0 (uniform-mean BPR fallback)"
+
+    import subprocess
+    import sys
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env = {k: v for k, v in os.environ.items() if k != "COMPGCN_ADV_TEMP"}
+    env.setdefault("NEO4J_URI", "bolt://localhost:7687")
+    env.setdefault("NEO4J_PASSWORD", "test")
+    env.setdefault("GOOGLE_API_KEY", "test-key")
+    result = subprocess.run(
+        [sys.executable, "-c",
+         "from src.config import Config; print(repr(Config.COMPGCN_ADV_TEMP))"],
+        env=env, capture_output=True, text=True, cwd=backend_dir,
+    )
+    assert result.returncode == 0, f"subprocess failed: {result.stderr}"
+    assert result.stdout.strip() == "0.0", \
+        f"Default Config.COMPGCN_ADV_TEMP must be 0.0, got: {result.stdout!r}"
 
 
 def _self_adversarial_loss(pos_logits, neg_logits, neg_ratio, adv_temp, margin=0.0):
@@ -169,3 +179,133 @@ def test_run_audit_bpr_branch_uses_adv_temp(monkeypatch):
         "self-adversarial branch must call softmax(neg_logits.view(K, num_pos), dim=0). "
         f"All softmax calls observed: {softmax_calls}"
     )
+
+
+def _stub_audit_data():
+    """Shared MagicMock data + loader patch for run_audit tests."""
+    from unittest.mock import MagicMock
+    data = MagicMock()
+    data.x = torch.randn(6, 4)
+    data.edge_index = torch.tensor([[0, 1, 2, 3], [1, 2, 3, 4]], dtype=torch.long)
+    data.edge_type = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+    data.node_type = torch.tensor([0, 0, 1, 1, 0, 1], dtype=torch.long)
+    data.edge_rel_id = ["r0", "r1", "r2", "r3"]
+    fake_loader = MagicMock()
+    fake_loader.fetch_graph_data.return_value = (
+        data, {"USES": 0, "PROPOSES": 1}, {}, {"A": 0, "B": 1}
+    )
+    return data, fake_loader
+
+
+def _patch_neo4j_session(monkeypatch):
+    """Mock Neo4j driver/session and return the session for assertion."""
+    from unittest.mock import MagicMock
+    session = MagicMock()
+    session.__enter__ = lambda self_: self_
+    session.__exit__ = lambda *a: False
+    driver = MagicMock()
+    driver.session.return_value = session
+    from src.db import DatabaseManager
+    monkeypatch.setattr(DatabaseManager, "refresh", staticmethod(lambda: driver))
+    return session
+
+
+def test_checkpoint_meta_records_adv_temp(tmp_path, monkeypatch):
+    """When training saves a checkpoint, the meta JSON must include adv_temp."""
+    import json
+    import src.gnn_module as gnn_module
+    from src.config import Config
+
+    monkeypatch.setattr(gnn_module, "CHECKPOINT_DIR", str(tmp_path))
+    monkeypatch.setattr(gnn_module, "CHECKPOINT_PATH", str(tmp_path / "best.pt"))
+    monkeypatch.setattr(gnn_module, "CHECKPOINT_META_PATH", str(tmp_path / "best.json"))
+
+    _, fake_loader = _stub_audit_data()
+    import src.gnn_loader as gnn_loader_module
+    monkeypatch.setattr(gnn_loader_module, "GNNLoader", lambda: fake_loader, raising=False)
+
+    monkeypatch.setattr(gnn_module, "_evaluate_auc", lambda *a, **kw: 0.97)
+    monkeypatch.setattr(gnn_module, "_evaluate_mrr", lambda *a, **kw: 0.93)
+    monkeypatch.setattr(Config, "COMPGCN_EPOCHS", 2, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_PATIENCE", 5, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_LOSS", "bpr", raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_ADV_TEMP", 1.0, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_AUC_GUARDRAIL", 0.95, raising=False)
+    _patch_neo4j_session(monkeypatch)
+
+    gnn_module.run_audit()
+
+    meta_path = tmp_path / "best.json"
+    assert meta_path.exists(), "checkpoint meta JSON must be written"
+    meta = json.loads(meta_path.read_text())
+    assert "adv_temp" in meta, "checkpoint meta must record adv_temp for attribution"
+    assert meta["adv_temp"] == 1.0
+
+
+def test_audit_run_node_records_adv_temp(monkeypatch):
+    """The AuditRun MERGE in run_audit must SET run.adv_temp = $adv_temp."""
+    import src.gnn_module as gnn_module
+    from src.config import Config
+
+    _, fake_loader = _stub_audit_data()
+    import src.gnn_loader as gnn_loader_module
+    monkeypatch.setattr(gnn_loader_module, "GNNLoader", lambda: fake_loader, raising=False)
+
+    monkeypatch.setattr(gnn_module, "_evaluate_auc", lambda *a, **kw: 0.97)
+    monkeypatch.setattr(gnn_module, "_evaluate_mrr", lambda *a, **kw: 0.93)
+    monkeypatch.setattr(Config, "COMPGCN_EPOCHS", 1, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_PATIENCE", 5, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_LOSS", "bpr", raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_ADV_TEMP", 1.0, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_AUC_GUARDRAIL", 0.95, raising=False)
+    session = _patch_neo4j_session(monkeypatch)
+
+    gnn_module.run_audit()
+
+    audit_run_calls = [c for c in session.run.call_args_list
+                       if "AuditRun" in str(c) or "MERGE" in str(c)]
+    assert audit_run_calls, "AuditRun MERGE must be issued"
+    matching = [c for c in audit_run_calls
+                if "adv_temp" in str(c.args[0]) and "adv_temp" in c.kwargs]
+    assert matching, \
+        "AuditRun Cypher must SET run.adv_temp and pass adv_temp= kwarg"
+    for c in matching:
+        assert c.kwargs.get("adv_temp") == 1.0
+
+
+def test_audit_run_records_adv_temp_when_guardrail_trips(monkeypatch):
+    """The AuditRun MERGE handles both completion and aborted paths via
+    status=$status — adv_temp must be present in the guardrail-aborted
+    write too."""
+    import src.gnn_module as gnn_module
+    from src.config import Config
+
+    _, fake_loader = _stub_audit_data()
+    import src.gnn_loader as gnn_loader_module
+    monkeypatch.setattr(gnn_loader_module, "GNNLoader", lambda: fake_loader, raising=False)
+
+    # Force AUC below guardrail to trip the abort path.
+    monkeypatch.setattr(gnn_module, "_evaluate_auc", lambda *a, **kw: 0.50)
+    monkeypatch.setattr(gnn_module, "_evaluate_mrr", lambda *a, **kw: 0.10)
+    monkeypatch.setattr(Config, "COMPGCN_EPOCHS", 1, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_PATIENCE", 5, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_LOSS", "bpr", raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_ADV_TEMP", 1.0, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_AUC_GUARDRAIL", 0.95, raising=False)
+    session = _patch_neo4j_session(monkeypatch)
+
+    gnn_module.run_audit()
+
+    # Plausibility-sync UNWIND must NOT have been issued.
+    sync_calls = [c for c in session.run.call_args_list
+                  if "plausibility_score" in str(c.args[0])]
+    assert len(sync_calls) == 0, "guardrail must block plausibility sync"
+
+    # AuditRun MERGE still issued, with adv_temp.
+    merge_calls = [c for c in session.run.call_args_list
+                   if "MERGE" in str(c.args[0])]
+    assert merge_calls, "AuditRun MERGE must still record the aborted run"
+    for c in merge_calls:
+        assert "adv_temp" in str(c.args[0]), \
+            "guardrail-aborted MERGE must also set run.adv_temp"
+        assert c.kwargs.get("adv_temp") == 1.0

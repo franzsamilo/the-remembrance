@@ -501,6 +501,7 @@ def run_audit():
                         "train_loss": final_train_loss,
                         "hidden_channels": Config.COMPGCN_HIDDEN_CHANNELS,
                         "loss_mode": loss_mode,
+                        "adv_temp": float(Config.COMPGCN_ADV_TEMP),
                         "num_relations": num_rels,
                         "in_channels": int(data.x.size(1)),
                         "saved_at": _utc_now_iso(),
@@ -689,7 +690,8 @@ def run_audit():
                 run.mrr = $mrr,
                 run.mrr_uniform = $mrr_uniform,
                 run.mrr_type_aware = $mrr_type_aware,
-                run.train_loss = $train_loss
+                run.train_loss = $train_loss,
+                run.adv_temp = $adv_temp
             """,
             run_id=audit_run_id,
             status=audit_status,
@@ -718,6 +720,7 @@ def run_audit():
             mrr_uniform=mrr_uniform,
             mrr_type_aware=mrr_type_aware,
             train_loss=final_train_loss,
+            adv_temp=float(Config.COMPGCN_ADV_TEMP),
         )
         logger.info("Neo4j CompGCN audit sync complete (status=%s).", audit_status)
 
@@ -845,7 +848,8 @@ def recover_from_checkpoint() -> dict | None:
                 run.mrr = $mrr,
                 run.mrr_uniform = $mrr_uniform,
                 run.mrr_type_aware = $mrr_type_aware,
-                run.loss = $loss
+                run.loss = $loss,
+                run.adv_temp = $adv_temp
             """,
             run_id=audit_run_id,
             saved_at=meta.get("saved_at"),
@@ -856,6 +860,7 @@ def recover_from_checkpoint() -> dict | None:
             mrr_uniform=mrr_uniform,
             mrr_type_aware=mrr_type_aware,
             loss=meta.get("loss_mode"),
+            adv_temp=float(meta.get("adv_temp", 0.0)),
         )
         logger.info("Neo4j recovery sync complete.")
 
