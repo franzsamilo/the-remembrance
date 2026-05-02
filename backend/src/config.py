@@ -71,6 +71,11 @@ class Config:
     # run_audit skips the Neo4j score write-back so a regressed model never
     # clobbers production plausibility values. Paper target is 0.95.
     COMPGCN_AUC_GUARDRAIL = float(os.getenv("COMPGCN_AUC_GUARDRAIL", 0.95))
+    # Self-adversarial negative weighting (RotatE Sun+ 2019, eq. 5). For each
+    # positive, weight its K=neg_ratio negatives by softmax(α * neg_score).
+    # α=0 disables (uniform-mean BPR — Run 6/7 reproduction). α=1.0 is the
+    # RotatE canonical value; Run 8 uses 1.0.
+    COMPGCN_ADV_TEMP = float(os.getenv("COMPGCN_ADV_TEMP", 0.0))
     LEGAL_NODE_TYPES = _parse_csv_env(
         "LEGAL_NODE_TYPES",
         "__Entity__,Entity,Method,Researcher,Dataset,Concept,Result,Metric",
