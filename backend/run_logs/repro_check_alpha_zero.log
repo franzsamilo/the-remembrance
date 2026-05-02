@@ -1,0 +1,12 @@
+2026-05-03 03:15:30,959 - kg-framework - INFO - Fetching relationships for GNN...
+2026-05-03 03:15:32,260 - kg-framework - INFO - Fetching node embeddings for 5187 nodes...
+2026-05-03 03:15:36,086 - kg-framework - INFO - Fetching node labels for 5187 nodes...
+2026-05-03 03:15:36,759 - kg-framework - INFO - Loaded graph: 5187 nodes (4902 embedded, 232 unlabeled), 6419 edges.
+2026-05-03 03:15:36,859 - kg-framework - INFO - Uniform negative sampling active.
+2026-05-03 03:15:36,865 - kg-framework - INFO - CompGCN training loss=bpr (margin=0.0)
+2026-05-03 03:15:37,543 - kg-framework - INFO - CompGCN epoch 1/2 loss=6.7681 auc_roc=0.6669
+2026-05-03 03:15:38,126 - kg-framework - INFO - CompGCN epoch 2/2 loss=3.8896 auc_roc=0.7381
+2026-05-03 03:15:45,093 - kg-framework - WARNING - AUC guardrail TRIPPED: final_auc=0.7403 < threshold 0.9500. Skipping Neo4j score write-back to protect production plausibility values.
+2026-05-03 03:15:45,093 - kg-framework - INFO - CompGCN audit completed for 6419 relationships: auc_roc=0.7403, mrr_uniform=0.4041, mrr_type_aware=0.3804, neg_sampling=uniform, guardrail_tripped=True
+2026-05-03 03:15:45,094 - kg-framework - WARNING - Neo4j plausibility write-back SKIPPED due to AUC guardrail. AuditRun recorded as aborted_auc_guardrail.
+2026-05-03 03:15:45,781 - kg-framework - INFO - Neo4j CompGCN audit sync complete (status=aborted_auc_guardrail).
