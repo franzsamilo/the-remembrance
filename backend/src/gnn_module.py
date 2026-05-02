@@ -445,7 +445,19 @@ def run_audit():
             # (see _sample_negative_edges: list-cat preserves [pos_0..pos_N] grouped by rep)
             pos_expanded = pos_logits.repeat(neg_ratio)
             diff = pos_expanded - neg_logits - bpr_margin
-            loss = -F.logsigmoid(diff).mean()
+            adv_temp = Config.COMPGCN_ADV_TEMP
+            if adv_temp > 0.0:
+                # Self-adversarial weighting (RotatE Sun+ 2019, eq. 5):
+                # weight each negative by softmax over its K siblings. Hard
+                # negatives (high score) dominate gradient. Detach so the
+                # weights themselves carry no gradient.
+                num_pos = pos_logits.size(0)
+                neg_reshaped = neg_logits.view(neg_ratio, num_pos)
+                weights = F.softmax(adv_temp * neg_reshaped, dim=0).detach()
+                diff_reshaped = diff.view(neg_ratio, num_pos)
+                loss = -(weights * F.logsigmoid(diff_reshaped)).sum(dim=0).mean()
+            else:
+                loss = -F.logsigmoid(diff).mean()
         else:
             logits = torch.cat([pos_logits, neg_logits])
             labels = torch.cat(

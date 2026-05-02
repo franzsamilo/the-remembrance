@@ -108,3 +108,64 @@ def test_adv_temp_neg_ratio_one_equals_logsigmoid_diff():
     expected = -F.logsigmoid(pos - neg).mean()
     actual = _self_adversarial_loss(pos, neg, neg_ratio=1, adv_temp=1.0)
     assert torch.allclose(expected, actual, atol=1e-7)
+
+
+def test_run_audit_bpr_branch_uses_adv_temp(monkeypatch):
+    """run_audit's BPR branch must compute self-adversarial loss when
+    Config.COMPGCN_ADV_TEMP > 0. We assert this by spying on F.softmax
+    and checking it was invoked with shape (K, num_pos), dim=0."""
+    from unittest.mock import MagicMock
+    import src.gnn_module as gnn_module
+    from src.config import Config
+
+    data = MagicMock()
+    data.x = torch.randn(6, 4)
+    data.edge_index = torch.tensor([[0, 1, 2, 3], [1, 2, 3, 4]], dtype=torch.long)
+    data.edge_type = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+    data.node_type = torch.tensor([0, 0, 1, 1, 0, 1], dtype=torch.long)
+    data.edge_rel_id = ["r0", "r1", "r2", "r3"]
+
+    fake_loader = MagicMock()
+    fake_loader.fetch_graph_data.return_value = (
+        data, {"USES": 0, "PROPOSES": 1}, {}, {"A": 0, "B": 1}
+    )
+    import src.gnn_loader as gnn_loader_module
+    monkeypatch.setattr(gnn_loader_module, "GNNLoader", lambda: fake_loader, raising=False)
+
+    monkeypatch.setattr(gnn_module, "_evaluate_auc", lambda *a, **kw: 0.96)
+    monkeypatch.setattr(gnn_module, "_evaluate_mrr", lambda *a, **kw: 0.92)
+    monkeypatch.setattr(Config, "COMPGCN_EPOCHS", 2, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_PATIENCE", 5, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_LOSS", "bpr", raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_ADV_TEMP", 1.0, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_AUC_GUARDRAIL", 0.95, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_NEG_SAMPLING", "uniform", raising=False)
+
+    session = MagicMock()
+    session.__enter__ = lambda self_: self_
+    session.__exit__ = lambda *a: False
+    driver = MagicMock()
+    driver.session.return_value = session
+    from src.db import DatabaseManager
+    monkeypatch.setattr(DatabaseManager, "refresh", staticmethod(lambda: driver))
+
+    softmax_calls = []
+    real_softmax = torch.nn.functional.softmax
+
+    def spy_softmax(input, dim=None, *args, **kwargs):
+        softmax_calls.append((tuple(input.shape), dim))
+        return real_softmax(input, dim=dim, *args, **kwargs)
+
+    monkeypatch.setattr(torch.nn.functional, "softmax", spy_softmax)
+
+    gnn_module.run_audit()
+
+    # At least one softmax call must have a 2-D shape and dim=0 — that's the
+    # self-adversarial weight computation. Eval-path softmax (if any) is on
+    # different shapes / dims and does not match.
+    matching = [c for c in softmax_calls
+                if len(c[0]) == 2 and c[1] == 0]
+    assert matching, (
+        "self-adversarial branch must call softmax(neg_logits.view(K, num_pos), dim=0). "
+        f"All softmax calls observed: {softmax_calls}"
+    )
