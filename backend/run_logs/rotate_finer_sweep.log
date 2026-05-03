@@ -1,0 +1,103 @@
+C:\Users\Franz Samilo\AppData\Local\Programs\Python\Python39\lib\site-packages\google\api_core\_python_version_support.py:246: FutureWarning: You are using a non-supported Python version (3.9.2). Google will not post any further updates to google.api_core supporting this Python version. Please upgrade to the latest Python version, or at least Python 3.10, and then update google.api_core.
+  warnings.warn(message, FutureWarning)
+C:\Users\Franz Samilo\AppData\Local\Programs\Python\Python39\lib\site-packages\google\auth\__init__.py:54: FutureWarning: You are using a Python version 3.9 past its end of life. Google will update google-auth with critical bug fixes on a best-effort basis, but not with any other fixes or features. Please upgrade your Python version, and then update google-auth.
+  warnings.warn(eol_message.format("3.9"), FutureWarning)
+C:\Users\Franz Samilo\AppData\Local\Programs\Python\Python39\lib\site-packages\google\oauth2\__init__.py:40: FutureWarning: You are using a Python version 3.9 past its end of life. Google will update google-auth with critical bug fixes on a best-effort basis, but not with any other fixes or features. Please upgrade your Python version, and then update google-auth.
+  warnings.warn(eol_message.format("3.9"), FutureWarning)
+C:\Users\Franz Samilo\AppData\Local\Programs\Python\Python39\lib\site-packages\google\api_core\_python_version_support.py:246: FutureWarning: You are using a non-supported Python version (3.9.2). Google will not post any further updates to google.ai.generativelanguage_v1beta supporting this Python version. Please upgrade to the latest Python version, or at least Python 3.10, and then update google.ai.generativelanguage_v1beta.
+  warnings.warn(message, FutureWarning)
+ROTATE_FINER_SWEEP_BEGIN
+2026-05-03 08:27:41,821 - kg-framework - INFO - Threshold sweep: running evaluation at tau=0.00
+2026-05-03 08:27:41,870 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-05-03 08:27:41,870 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: distilbert-base-nli-stsb-mean-tokens
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00,  4.42it/s]Batches: 100%|##########| 1/1 [00:00<00:00,  4.42it/s]
+2026-05-03 08:27:46,218 - kg-framework - INFO - Retrieving context for query: What are the key findings?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 61.72it/s]
+2026-05-03 08:27:47,564 - kg-framework - INFO - Retrieving context for query: Who are the main researchers?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 71.50it/s]
+2026-05-03 08:27:47,933 - kg-framework - INFO - Retrieving context for query: What methods were used?
+2026-05-03 08:27:48,230 - kg-framework - INFO - Synthesizing narrative for query: What methods were used?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 43.53it/s]
+2026-05-03 08:28:32,246 - kg-framework - INFO - Retrieving context for query: What are the main results?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 39.72it/s]
+2026-05-03 08:28:33,158 - kg-framework - INFO - Retrieving context for query: What datasets or concepts are discussed?
+2026-05-03 08:28:33,439 - kg-framework - INFO - Threshold sweep: running evaluation at tau=0.00
+2026-05-03 08:28:33,444 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-05-03 08:28:33,444 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: distilbert-base-nli-stsb-mean-tokens
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 25.70it/s]
+2026-05-03 08:28:37,429 - kg-framework - INFO - Retrieving context for query: What are the key findings?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 58.19it/s]
+2026-05-03 08:28:38,013 - kg-framework - INFO - Retrieving context for query: Who are the main researchers?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 53.51it/s]
+2026-05-03 08:28:38,315 - kg-framework - INFO - Retrieving context for query: What methods were used?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 49.91it/s]
+2026-05-03 08:28:38,605 - kg-framework - INFO - Retrieving context for query: What are the main results?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 47.88it/s]
+2026-05-03 08:28:38,918 - kg-framework - INFO - Retrieving context for query: What datasets or concepts are discussed?
+2026-05-03 08:28:39,202 - kg-framework - INFO - Threshold sweep: running evaluation at tau=0.00
+2026-05-03 08:28:39,209 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-05-03 08:28:39,209 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: distilbert-base-nli-stsb-mean-tokens
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 27.45it/s]
+2026-05-03 08:28:43,206 - kg-framework - INFO - Retrieving context for query: What are the key findings?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 51.98it/s]
+2026-05-03 08:28:44,110 - kg-framework - INFO - Retrieving context for query: Who are the main researchers?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 56.69it/s]
+2026-05-03 08:28:44,420 - kg-framework - INFO - Retrieving context for query: What methods were used?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 54.43it/s]
+2026-05-03 08:28:44,712 - kg-framework - INFO - Retrieving context for query: What are the main results?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 42.89it/s]
+2026-05-03 08:28:45,020 - kg-framework - INFO - Retrieving context for query: What datasets or concepts are discussed?
+2026-05-03 08:28:45,299 - kg-framework - INFO - Threshold sweep: running evaluation at tau=0.00
+2026-05-03 08:28:45,307 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-05-03 08:28:45,307 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: distilbert-base-nli-stsb-mean-tokens
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 25.26it/s]
+2026-05-03 08:28:49,227 - kg-framework - INFO - Retrieving context for query: What are the key findings?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 53.95it/s]
+2026-05-03 08:28:49,805 - kg-framework - INFO - Retrieving context for query: Who are the main researchers?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 52.73it/s]
+2026-05-03 08:28:50,108 - kg-framework - INFO - Retrieving context for query: What methods were used?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 52.51it/s]
+2026-05-03 08:28:50,409 - kg-framework - INFO - Retrieving context for query: What are the main results?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 49.08it/s]
+2026-05-03 08:28:50,725 - kg-framework - INFO - Retrieving context for query: What datasets or concepts are discussed?
+2026-05-03 08:28:50,996 - kg-framework - INFO - Threshold sweep: running evaluation at tau=0.00
+2026-05-03 08:28:51,005 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-05-03 08:28:51,005 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: distilbert-base-nli-stsb-mean-tokens
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 28.09it/s]
+2026-05-03 08:28:54,917 - kg-framework - INFO - Retrieving context for query: What are the key findings?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 60.49it/s]
+2026-05-03 08:28:55,571 - kg-framework - INFO - Retrieving context for query: Who are the main researchers?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 48.06it/s]
+2026-05-03 08:28:55,880 - kg-framework - INFO - Retrieving context for query: What methods were used?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 55.35it/s]
+2026-05-03 08:28:56,174 - kg-framework - INFO - Retrieving context for query: What are the main results?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 47.50it/s]
+2026-05-03 08:28:56,480 - kg-framework - INFO - Retrieving context for query: What datasets or concepts are discussed?
+2026-05-03 08:28:56,749 - kg-framework - INFO - Threshold sweep: running evaluation at tau=0.01
+2026-05-03 08:28:56,756 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-05-03 08:28:56,756 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: distilbert-base-nli-stsb-mean-tokens
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 35.42it/s]
+2026-05-03 08:29:00,687 - kg-framework - INFO - Retrieving context for query: What are the key findings?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 71.07it/s]
+2026-05-03 08:29:01,257 - kg-framework - INFO - Retrieving context for query: Who are the main researchers?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 64.12it/s]
+2026-05-03 08:29:01,553 - kg-framework - INFO - Retrieving context for query: What methods were used?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 70.94it/s]
+2026-05-03 08:29:01,838 - kg-framework - INFO - Retrieving context for query: What are the main results?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 68.31it/s]
+2026-05-03 08:29:02,297 - kg-framework - INFO - Retrieving context for query: What datasets or concepts are discussed?
+2026-05-03 08:29:02,620 - kg-framework - INFO - Threshold sweep: running evaluation at tau=0.01
+2026-05-03 08:29:02,629 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2026-05-03 08:29:02,629 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: distilbert-base-nli-stsb-mean-tokens
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 33.76it/s]
+2026-05-03 08:29:06,914 - kg-framework - INFO - Retrieving context for query: What are the key findings?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 62.88it/s]
+2026-05-03 08:29:07,538 - kg-framework - INFO - Retrieving context for query: Who are the main researchers?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 55.71it/s]
+2026-05-03 08:29:07,849 - kg-framework - INFO - Retrieving context for query: What methods were used?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 53.20it/s]
+2026-05-03 08:29:08,181 - kg-framework - INFO - Retrieving context for query: What are the main results?
+Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|##########| 1/1 [00:00<00:00, 62.45it/s]
+2026-05-03 08:29:08,481 - kg-framework - INFO - Retrieving context for query: What datasets or concepts are discussed?
+2026-05-03 08:29:08,760 - kg-framework - INFO - Threshold sweep results written to C:\Users\Franz Samilo\Desktop\the-remembrance\backend\evaluation_results.json
+ROTATE_FINER_SWEEP_DONE

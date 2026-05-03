@@ -1,0 +1,47 @@
+C:\Users\Franz Samilo\AppData\Local\Programs\Python\Python39\lib\site-packages\google\api_core\_python_version_support.py:246: FutureWarning: You are using a non-supported Python version (3.9.2). Google will not post any further updates to google.api_core supporting this Python version. Please upgrade to the latest Python version, or at least Python 3.10, and then update google.api_core.
+  warnings.warn(message, FutureWarning)
+C:\Users\Franz Samilo\AppData\Local\Programs\Python\Python39\lib\site-packages\google\auth\__init__.py:54: FutureWarning: You are using a Python version 3.9 past its end of life. Google will update google-auth with critical bug fixes on a best-effort basis, but not with any other fixes or features. Please upgrade your Python version, and then update google-auth.
+  warnings.warn(eol_message.format("3.9"), FutureWarning)
+C:\Users\Franz Samilo\AppData\Local\Programs\Python\Python39\lib\site-packages\google\oauth2\__init__.py:40: FutureWarning: You are using a Python version 3.9 past its end of life. Google will update google-auth with critical bug fixes on a best-effort basis, but not with any other fixes or features. Please upgrade your Python version, and then update google-auth.
+  warnings.warn(eol_message.format("3.9"), FutureWarning)
+C:\Users\Franz Samilo\AppData\Local\Programs\Python\Python39\lib\site-packages\google\api_core\_python_version_support.py:246: FutureWarning: You are using a non-supported Python version (3.9.2). Google will not post any further updates to google.ai.generativelanguage_v1beta supporting this Python version. Please upgrade to the latest Python version, or at least Python 3.10, and then update google.ai.generativelanguage_v1beta.
+  warnings.warn(message, FutureWarning)
+ROTATE_AUDIT_BEGIN
+  loss=bpr neg_sampling=uniform adv_temp=1.0 decoder=rotate auc_guardrail=0.95
+2026-05-03 08:15:01,761 - kg-framework - INFO - Fetching relationships for GNN...
+2026-05-03 08:15:03,278 - kg-framework - INFO - Fetching node embeddings for 5187 nodes...
+2026-05-03 08:15:07,334 - kg-framework - INFO - Fetching node labels for 5187 nodes...
+2026-05-03 08:15:08,063 - kg-framework - INFO - Loaded graph: 5187 nodes (4902 embedded, 232 unlabeled), 6419 edges.
+2026-05-03 08:15:08,160 - kg-framework - INFO - Uniform negative sampling active.
+2026-05-03 08:15:08,170 - kg-framework - INFO - CompGCN training loss=bpr (margin=0.0) decoder=rotate
+2026-05-03 08:15:09,059 - kg-framework - INFO - CompGCN epoch 1/300 loss=4.4922 auc_roc=0.5755
+2026-05-03 08:15:15,565 - kg-framework - INFO - CompGCN epoch 10/300 loss=0.6820 auc_roc=0.8652
+2026-05-03 08:15:22,605 - kg-framework - INFO - CompGCN epoch 20/300 loss=0.6087 auc_roc=0.9073
+2026-05-03 08:15:29,410 - kg-framework - INFO - CompGCN epoch 30/300 loss=0.5652 auc_roc=0.9246
+2026-05-03 08:15:36,779 - kg-framework - INFO - CompGCN epoch 40/300 loss=0.5135 auc_roc=0.9347
+2026-05-03 08:15:43,929 - kg-framework - INFO - CompGCN epoch 50/300 loss=0.4799 auc_roc=0.9390
+2026-05-03 08:15:50,908 - kg-framework - INFO - CompGCN epoch 60/300 loss=0.4358 auc_roc=0.9488
+2026-05-03 08:15:58,565 - kg-framework - INFO - CompGCN epoch 70/300 loss=0.4128 auc_roc=0.9541
+2026-05-03 08:16:05,487 - kg-framework - INFO - CompGCN epoch 80/300 loss=0.3786 auc_roc=0.9608
+2026-05-03 08:16:12,517 - kg-framework - INFO - CompGCN epoch 90/300 loss=0.3503 auc_roc=0.9647
+2026-05-03 08:16:19,912 - kg-framework - INFO - CompGCN epoch 100/300 loss=0.3124 auc_roc=0.9680
+2026-05-03 08:16:26,957 - kg-framework - INFO - CompGCN epoch 110/300 loss=0.3022 auc_roc=0.9709
+2026-05-03 08:16:33,979 - kg-framework - INFO - CompGCN epoch 120/300 loss=0.2846 auc_roc=0.9739
+2026-05-03 08:16:41,097 - kg-framework - INFO - CompGCN epoch 130/300 loss=0.2717 auc_roc=0.9740
+2026-05-03 08:16:48,239 - kg-framework - INFO - CompGCN epoch 140/300 loss=0.2652 auc_roc=0.9758
+2026-05-03 08:16:55,115 - kg-framework - INFO - CompGCN epoch 150/300 loss=0.2578 auc_roc=0.9758
+2026-05-03 08:17:02,117 - kg-framework - INFO - CompGCN epoch 160/300 loss=0.2597 auc_roc=0.9766
+2026-05-03 08:17:09,259 - kg-framework - INFO - CompGCN epoch 170/300 loss=0.2528 auc_roc=0.9771
+2026-05-03 08:17:16,301 - kg-framework - INFO - CompGCN epoch 180/300 loss=0.2578 auc_roc=0.9765
+2026-05-03 08:17:23,445 - kg-framework - INFO - CompGCN epoch 190/300 loss=0.2537 auc_roc=0.9760
+2026-05-03 08:17:30,718 - kg-framework - INFO - CompGCN epoch 200/300 loss=0.2485 auc_roc=0.9758
+2026-05-03 08:17:37,629 - kg-framework - INFO - CompGCN epoch 210/300 loss=0.2515 auc_roc=0.9761
+2026-05-03 08:17:44,587 - kg-framework - INFO - CompGCN epoch 220/300 loss=0.2533 auc_roc=0.9767
+2026-05-03 08:17:51,801 - kg-framework - INFO - CompGCN epoch 230/300 loss=0.2529 auc_roc=0.9767
+2026-05-03 08:17:58,764 - kg-framework - INFO - CompGCN epoch 240/300 loss=0.2537 auc_roc=0.9770
+2026-05-03 08:18:02,193 - kg-framework - INFO - CompGCN early stopping at epoch 245 (no improvement for 30 epochs)
+2026-05-03 08:18:10,132 - kg-framework - INFO - CompGCN audit completed for 6419 relationships: auc_roc=0.9759, mrr_uniform=0.9095, mrr_type_aware=0.8868, neg_sampling=uniform, guardrail_tripped=False
+2026-05-03 08:18:10,132 - kg-framework - INFO - Syncing CompGCN plausibility scores to Neo4j...
+2026-05-03 08:18:12,469 - kg-framework - INFO - Neo4j CompGCN audit sync complete (status=trained_experimental).
+2026-05-03 08:18:12,482 - kg-framework - INFO - GNN metrics written to C:\Users\Franz Samilo\Desktop\the-remembrance\backend\evaluation_results.json
+ROTATE_AUDIT_DONE elapsed_min=3.19 best_epoch=215 auc=0.9759 mrr_uniform=0.9095 mrr_type_aware=0.8868
