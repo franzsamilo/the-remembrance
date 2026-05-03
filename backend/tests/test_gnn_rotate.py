@@ -217,3 +217,130 @@ def test_compgcn_audit_model_rotate_and_distmult_differ():
         out_rt = model_rt.edge_logits(x, edge_index, edge_type)
     assert not torch.allclose(out_dm, out_rt, atol=1e-3), \
         "DistMult and RotatE must produce distinct logits at identical inputs"
+
+
+def _stub_audit_data():
+    """Shared MagicMock data + loader patch for run_audit tests."""
+    from unittest.mock import MagicMock
+    data = MagicMock()
+    data.x = torch.randn(6, 4)
+    data.edge_index = torch.tensor([[0, 1, 2, 3], [1, 2, 3, 4]], dtype=torch.long)
+    data.edge_type = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+    data.node_type = torch.tensor([0, 0, 1, 1, 0, 1], dtype=torch.long)
+    data.edge_rel_id = ["r0", "r1", "r2", "r3"]
+    fake_loader = MagicMock()
+    fake_loader.fetch_graph_data.return_value = (
+        data, {"USES": 0, "PROPOSES": 1}, {}, {"A": 0, "B": 1}
+    )
+    return data, fake_loader
+
+
+def _patch_neo4j_session(monkeypatch):
+    from unittest.mock import MagicMock
+    session = MagicMock()
+    session.__enter__ = lambda self_: self_
+    session.__exit__ = lambda *a: False
+    driver = MagicMock()
+    driver.session.return_value = session
+    from src.db import DatabaseManager
+    monkeypatch.setattr(DatabaseManager, "refresh", staticmethod(lambda: driver))
+    return session
+
+
+def test_run_audit_uses_rotate_when_configured(monkeypatch, tmp_path):
+    """When Config.COMPGCN_DECODER='rotate', the model constructed inside
+    run_audit must have decoder='rotate' and a rel_phase embedding."""
+    import src.gnn_module as gnn_module
+    from src.config import Config
+
+    monkeypatch.setattr(gnn_module, "CHECKPOINT_DIR", str(tmp_path))
+    monkeypatch.setattr(gnn_module, "CHECKPOINT_PATH", str(tmp_path / "best.pt"))
+    monkeypatch.setattr(gnn_module, "CHECKPOINT_META_PATH", str(tmp_path / "best.json"))
+
+    _, fake_loader = _stub_audit_data()
+    import src.gnn_loader as gnn_loader_module
+    monkeypatch.setattr(gnn_loader_module, "GNNLoader", lambda: fake_loader, raising=False)
+    monkeypatch.setattr(gnn_module, "_evaluate_auc", lambda *a, **kw: 0.97)
+    monkeypatch.setattr(gnn_module, "_evaluate_mrr", lambda *a, **kw: 0.93)
+    monkeypatch.setattr(Config, "COMPGCN_EPOCHS", 1, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_PATIENCE", 5, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_LOSS", "bpr", raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_DECODER", "rotate", raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_AUC_GUARDRAIL", 0.95, raising=False)
+    _patch_neo4j_session(monkeypatch)
+
+    captured = {}
+    real_init = gnn_module.CompGCNAuditModel.__init__
+
+    def spy_init(self, *args, **kwargs):
+        captured["decoder"] = kwargs.get("decoder", "distmult")
+        return real_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(gnn_module.CompGCNAuditModel, "__init__", spy_init)
+
+    gnn_module.run_audit()
+
+    assert captured.get("decoder") == "rotate", \
+        f"run_audit must construct model with decoder='rotate', got {captured!r}"
+
+
+def test_run_audit_checkpoint_meta_records_decoder(monkeypatch, tmp_path):
+    """Checkpoint meta JSON must include 'decoder' field for recovery attribution."""
+    import json
+    import src.gnn_module as gnn_module
+    from src.config import Config
+
+    monkeypatch.setattr(gnn_module, "CHECKPOINT_DIR", str(tmp_path))
+    monkeypatch.setattr(gnn_module, "CHECKPOINT_PATH", str(tmp_path / "best.pt"))
+    monkeypatch.setattr(gnn_module, "CHECKPOINT_META_PATH", str(tmp_path / "best.json"))
+
+    _, fake_loader = _stub_audit_data()
+    import src.gnn_loader as gnn_loader_module
+    monkeypatch.setattr(gnn_loader_module, "GNNLoader", lambda: fake_loader, raising=False)
+    monkeypatch.setattr(gnn_module, "_evaluate_auc", lambda *a, **kw: 0.97)
+    monkeypatch.setattr(gnn_module, "_evaluate_mrr", lambda *a, **kw: 0.93)
+    monkeypatch.setattr(Config, "COMPGCN_EPOCHS", 2, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_PATIENCE", 5, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_LOSS", "bpr", raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_DECODER", "rotate", raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_AUC_GUARDRAIL", 0.95, raising=False)
+    _patch_neo4j_session(monkeypatch)
+
+    gnn_module.run_audit()
+
+    meta = json.loads((tmp_path / "best.json").read_text())
+    assert meta.get("decoder") == "rotate", \
+        f"checkpoint meta must record decoder, got {meta}"
+
+
+def test_audit_run_node_records_decoder(monkeypatch, tmp_path):
+    """The AuditRun MERGE in run_audit must SET run.decoder = $decoder."""
+    import src.gnn_module as gnn_module
+    from src.config import Config
+
+    monkeypatch.setattr(gnn_module, "CHECKPOINT_DIR", str(tmp_path))
+    monkeypatch.setattr(gnn_module, "CHECKPOINT_PATH", str(tmp_path / "best.pt"))
+    monkeypatch.setattr(gnn_module, "CHECKPOINT_META_PATH", str(tmp_path / "best.json"))
+
+    _, fake_loader = _stub_audit_data()
+    import src.gnn_loader as gnn_loader_module
+    monkeypatch.setattr(gnn_loader_module, "GNNLoader", lambda: fake_loader, raising=False)
+    monkeypatch.setattr(gnn_module, "_evaluate_auc", lambda *a, **kw: 0.97)
+    monkeypatch.setattr(gnn_module, "_evaluate_mrr", lambda *a, **kw: 0.93)
+    monkeypatch.setattr(Config, "COMPGCN_EPOCHS", 1, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_PATIENCE", 5, raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_LOSS", "bpr", raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_DECODER", "rotate", raising=False)
+    monkeypatch.setattr(Config, "COMPGCN_AUC_GUARDRAIL", 0.95, raising=False)
+    session = _patch_neo4j_session(monkeypatch)
+
+    gnn_module.run_audit()
+
+    merge_calls = [c for c in session.run.call_args_list if "MERGE" in str(c.args[0])]
+    assert merge_calls, "AuditRun MERGE must be issued"
+    matching = [c for c in merge_calls
+                if "decoder" in str(c.args[0]) and "decoder" in c.kwargs]
+    assert matching, \
+        "AuditRun Cypher must SET run.decoder and pass decoder= kwarg"
+    for c in matching:
+        assert c.kwargs.get("decoder") == "rotate"

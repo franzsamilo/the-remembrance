@@ -454,6 +454,7 @@ def run_audit():
         hidden_channels=Config.COMPGCN_HIDDEN_CHANNELS,
         num_relations=num_rels,
         dropout=Config.COMPGCN_DROPOUT,
+        decoder=Config.COMPGCN_DECODER,
     )
     optimizer = torch.optim.Adam(
         model.parameters(),
@@ -464,7 +465,10 @@ def run_audit():
         optimizer, mode="max", factor=0.5, patience=5, min_lr=1e-5
     )
     criterion = nn.BCEWithLogitsLoss()
-    logger.info("CompGCN training loss=%s (margin=%s)", loss_mode, bpr_margin)
+    logger.info(
+        "CompGCN training loss=%s (margin=%s) decoder=%s",
+        loss_mode, bpr_margin, Config.COMPGCN_DECODER,
+    )
 
     best_state = copy.deepcopy(model.state_dict())
     best_auc = float("-inf")
@@ -556,6 +560,7 @@ def run_audit():
                         "hidden_channels": Config.COMPGCN_HIDDEN_CHANNELS,
                         "loss_mode": loss_mode,
                         "adv_temp": float(Config.COMPGCN_ADV_TEMP),
+                        "decoder": Config.COMPGCN_DECODER,
                         "num_relations": num_rels,
                         "in_channels": int(data.x.size(1)),
                         "saved_at": _utc_now_iso(),
@@ -745,7 +750,8 @@ def run_audit():
                 run.mrr_uniform = $mrr_uniform,
                 run.mrr_type_aware = $mrr_type_aware,
                 run.train_loss = $train_loss,
-                run.adv_temp = $adv_temp
+                run.adv_temp = $adv_temp,
+                run.decoder = $decoder
             """,
             run_id=audit_run_id,
             status=audit_status,
@@ -775,6 +781,7 @@ def run_audit():
             mrr_type_aware=mrr_type_aware,
             train_loss=final_train_loss,
             adv_temp=float(Config.COMPGCN_ADV_TEMP),
+            decoder=Config.COMPGCN_DECODER,
         )
         logger.info("Neo4j CompGCN audit sync complete (status=%s).", audit_status)
 
@@ -827,6 +834,7 @@ def recover_from_checkpoint() -> dict | None:
         hidden_channels=meta.get("hidden_channels", Config.COMPGCN_HIDDEN_CHANNELS),
         num_relations=num_rels,
         dropout=Config.COMPGCN_DROPOUT,
+        decoder=meta.get("decoder", "distmult"),
     )
     best_state = torch.load(CHECKPOINT_PATH, map_location="cpu")
     model.load_state_dict(best_state)
@@ -903,7 +911,8 @@ def recover_from_checkpoint() -> dict | None:
                 run.mrr_uniform = $mrr_uniform,
                 run.mrr_type_aware = $mrr_type_aware,
                 run.loss = $loss,
-                run.adv_temp = $adv_temp
+                run.adv_temp = $adv_temp,
+                run.decoder = $decoder
             """,
             run_id=audit_run_id,
             saved_at=meta.get("saved_at"),
@@ -915,6 +924,7 @@ def recover_from_checkpoint() -> dict | None:
             mrr_type_aware=mrr_type_aware,
             loss=meta.get("loss_mode"),
             adv_temp=float(meta.get("adv_temp", 0.0)),
+            decoder=meta.get("decoder", "distmult"),
         )
         logger.info("Neo4j recovery sync complete.")
 
