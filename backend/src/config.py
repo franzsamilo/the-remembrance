@@ -76,6 +76,13 @@ class Config:
     # α=0 disables (uniform-mean BPR — Run 6/7 reproduction). α=1.0 is the
     # RotatE canonical value; Run 8 uses 1.0.
     COMPGCN_ADV_TEMP = float(os.getenv("COMPGCN_ADV_TEMP", 0.0))
+    # Decoder choice for CompGCN. "distmult" (Runs 1-8 default) computes
+    # s(h,r,t) = sum(h * r * t). "rotate" computes -||h o r - t||_2 with
+    # relations parameterized as phase angles in [-pi, pi] over 128 complex
+    # dimensions (split halves of the 256-dim real encoder output).
+    # Reference: Sun et al. 2019, "RotatE: Knowledge Graph Embedding by
+    # Relational Rotation in Complex Space".
+    COMPGCN_DECODER = os.getenv("COMPGCN_DECODER", "distmult").lower()
     LEGAL_NODE_TYPES = _parse_csv_env(
         "LEGAL_NODE_TYPES",
         "__Entity__,Entity,Method,Researcher,Dataset,Concept,Result,Metric",
