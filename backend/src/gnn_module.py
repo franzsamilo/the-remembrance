@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import os
 import threading
 import uuid
@@ -209,16 +210,37 @@ class CompGCNLayer(nn.Module):
 
 
 class CompGCNAuditModel(nn.Module):
-    def __init__(self, in_channels: int, hidden_channels: int, num_relations: int, dropout: float = 0.0):
+    def __init__(
+        self,
+        in_channels: int,
+        hidden_channels: int,
+        num_relations: int,
+        dropout: float = 0.0,
+        decoder: str = "distmult",
+    ):
         super().__init__()
         self.dropout = nn.Dropout(p=dropout)
         self.node_projection = nn.Linear(in_channels, hidden_channels)
+        # Encoder relation embeddings — used by CompGCN message passing.
+        # Independent of the decoder's relation parameters (per Vashishth+ 2020
+        # encoder-decoder split: Table 4 evaluates DistMult / TransE / ConvE
+        # decoders on top of the same CompGCN encoder).
         self.rel_emb = nn.Embedding(num_relations, hidden_channels)
         self.layer1 = CompGCNLayer(hidden_channels, hidden_channels)
         self.norm1 = nn.LayerNorm(hidden_channels)
         self.layer2 = CompGCNLayer(hidden_channels, hidden_channels)
         self.norm2 = nn.LayerNorm(hidden_channels)
         self.layer3 = CompGCNLayer(hidden_channels, hidden_channels)
+
+        self.decoder = decoder
+        if decoder == "rotate":
+            # RotatE relation embeddings are PHASE ANGLES, not vectors.
+            # Half the hidden dim because we treat the encoder's real-valued
+            # output as a complex vector by splitting halves: h_re = x[:k], h_im = x[k:].
+            # Reference: Sun et al. 2019, "RotatE: Knowledge Graph Embedding by
+            # Relational Rotation in Complex Space", eq. 14.
+            self.rel_phase = nn.Embedding(num_relations, hidden_channels // 2)
+            nn.init.uniform_(self.rel_phase.weight, -math.pi, math.pi)
 
     def encode(self, x: torch.Tensor, edge_index: torch.Tensor, edge_type: torch.Tensor) -> torch.Tensor:
         x = self.node_projection(x)
@@ -233,9 +255,41 @@ class CompGCNAuditModel(nn.Module):
         edge_index: torch.Tensor,
         edge_type: torch.Tensor,
     ) -> torch.Tensor:
+        if self.decoder == "rotate":
+            return self._rotate_logits(x, edge_index, edge_type)
+        # DistMult (Runs 1-8 default) — unchanged
         src, dst = edge_index
         rel = self.rel_emb(edge_type)
         return torch.sum(x[src] * rel * x[dst], dim=1)
+
+    def _rotate_logits(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_type: torch.Tensor,
+    ) -> torch.Tensor:
+        """RotatE composition: -||h o r - t||_2 in complex space.
+
+        Encoder output x is real-valued (B, hidden). Treat it as a complex
+        vector by splitting halves: h_re = x[src][:, :k], h_im = x[src][:, k:].
+        Relations are phase angles theta in [-pi, pi]; r = cos(theta) + i sin(theta).
+        Score = -sqrt(sum_i (hr_re_i - t_re_i)^2 + (hr_im_i - t_im_i)^2 + eps).
+
+        Eps prevents NaN gradient when distance -> 0 (perfect-match positive triple).
+        """
+        src, dst = edge_index
+        h, t = x[src], x[dst]
+        k = self.rel_phase.embedding_dim
+        h_re, h_im = h[:, :k], h[:, k:]
+        t_re, t_im = t[:, :k], t[:, k:]
+        theta = self.rel_phase(edge_type)
+        r_re, r_im = torch.cos(theta), torch.sin(theta)
+        hr_re = h_re * r_re - h_im * r_im
+        hr_im = h_re * r_im + h_im * r_re
+        diff_re = hr_re - t_re
+        diff_im = hr_im - t_im
+        d_squared = torch.sum(diff_re * diff_re + diff_im * diff_im, dim=1)
+        return -torch.sqrt(d_squared + 1e-9)
 
     def edge_scores(
         self,
