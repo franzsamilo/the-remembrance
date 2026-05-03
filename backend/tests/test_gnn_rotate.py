@@ -37,3 +37,79 @@ def test_config_exposes_decoder_with_distmult_default():
     assert result.returncode == 0, f"subprocess failed: {result.stderr}"
     assert result.stdout.strip() == "'distmult'", \
         f"Default Config.COMPGCN_DECODER must be 'distmult', got: {result.stdout!r}"
+
+
+def _rotate_score(h_re, h_im, t_re, t_im, theta):
+    """Reference RotatE score: -||h o r - t||_2 with r = cos(theta) + i sin(theta).
+
+    h_re, h_im, t_re, t_im: (B, k) real tensors
+    theta: (B, k) phase angles
+    Returns: (B,) negative-distance scores in (-inf, 0].
+    """
+    r_re, r_im = torch.cos(theta), torch.sin(theta)
+    hr_re = h_re * r_re - h_im * r_im
+    hr_im = h_re * r_im + h_im * r_re
+    diff_re = hr_re - t_re
+    diff_im = hr_im - t_im
+    d_squared = torch.sum(diff_re * diff_re + diff_im * diff_im, dim=1)
+    return -torch.sqrt(d_squared + 1e-9)
+
+
+def test_rotate_zero_phase_equals_translation_distance():
+    """At theta=0 for all i, r = (1, 0), so h o r = h.
+    Score reduces to -||h - t||_2 (pure translation distance, no rotation)."""
+    torch.manual_seed(0)
+    B, k = 4, 8
+    h_re, h_im = torch.randn(B, k), torch.randn(B, k)
+    t_re, t_im = torch.randn(B, k), torch.randn(B, k)
+    theta = torch.zeros(B, k)
+
+    actual = _rotate_score(h_re, h_im, t_re, t_im, theta)
+    expected_d2 = ((h_re - t_re) ** 2 + (h_im - t_im) ** 2).sum(dim=1)
+    expected = -torch.sqrt(expected_d2 + 1e-9)
+    assert torch.allclose(actual, expected, atol=1e-6)
+
+
+def test_rotate_phase_pi_negates_real_part():
+    """At theta=pi for all i, r = (-1, 0), so h o r = -h.
+    Score equals -||-h - t|| = -||h + t||."""
+    torch.manual_seed(1)
+    B, k = 3, 6
+    h_re, h_im = torch.randn(B, k), torch.randn(B, k)
+    t_re, t_im = torch.randn(B, k), torch.randn(B, k)
+    theta = torch.full((B, k), math.pi)
+
+    actual = _rotate_score(h_re, h_im, t_re, t_im, theta)
+    # h o e^{i pi} = h * (-1) (cos(pi) = -1, sin(pi) ~ 1.2e-16)
+    expected_d2 = ((-h_re - t_re) ** 2 + (-h_im - t_im) ** 2).sum(dim=1)
+    expected = -torch.sqrt(expected_d2 + 1e-9)
+    assert torch.allclose(actual, expected, atol=1e-5)
+
+
+def test_rotate_score_always_non_positive():
+    """Score = -sqrt(d^2 + eps) is always <= 0 (with floor near -sqrt(eps))."""
+    torch.manual_seed(2)
+    B, k = 32, 16
+    h_re, h_im = torch.randn(B, k), torch.randn(B, k)
+    t_re, t_im = torch.randn(B, k), torch.randn(B, k)
+    theta = torch.empty(B, k).uniform_(-math.pi, math.pi)
+    score = _rotate_score(h_re, h_im, t_re, t_im, theta)
+    assert (score <= 0).all(), f"all scores must be <= 0, got max={score.max()}"
+
+
+def test_rotate_score_zero_when_h_equals_rotated_t():
+    """When t = h o r (perfect translation match), score should be near 0.
+    (Exactly 0 minus eps-floor: -sqrt(1e-9) ~ -3.16e-5.)"""
+    torch.manual_seed(3)
+    B, k = 4, 8
+    h_re, h_im = torch.randn(B, k), torch.randn(B, k)
+    theta = torch.empty(B, k).uniform_(-math.pi, math.pi)
+    r_re, r_im = torch.cos(theta), torch.sin(theta)
+    # Construct t = h o r exactly so the difference is zero before the eps.
+    t_re = h_re * r_re - h_im * r_im
+    t_im = h_re * r_im + h_im * r_re
+
+    score = _rotate_score(h_re, h_im, t_re, t_im, theta)
+    # All scores should be near -sqrt(eps) = -sqrt(1e-9) ~ -3.16e-5
+    assert (score > -1e-3).all(), "perfect match scores should be near 0"
+    assert (score <= 0).all(), "scores still must be <= 0 by definition"
