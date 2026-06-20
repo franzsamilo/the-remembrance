@@ -1,12 +1,16 @@
 "use client";
 
 import { motion } from "framer-motion";
+import InfoTooltip from "@/components/InfoTooltip";
 
 interface StatCardProps {
   label: string;
   value: React.ReactNode;
   icon: React.ReactNode;
   subtext: string;
+  /** Optional plain-English explanation surfaced via a small info tooltip on
+   *  the label — for visitors who don't know what e.g. "AUC-ROC" means. */
+  explain?: string;
   delay?: number;
 }
 
@@ -15,6 +19,7 @@ export default function StatCard({
   value,
   icon,
   subtext,
+  explain,
   delay = 0,
 }: StatCardProps) {
   return (
@@ -29,8 +34,13 @@ export default function StatCard({
           {icon}
         </div>
       </div>
-      <p className="text-xs font-medium text-[#737373] mb-1 uppercase tracking-wider">
+      <p className="text-xs font-medium text-[#737373] mb-1 uppercase tracking-wider inline-flex items-center gap-1.5">
         {label}
+        {explain && (
+          <InfoTooltip label={label}>
+            {explain}
+          </InfoTooltip>
+        )}
       </p>
       <h4 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight font-mono data-value">
         {value}

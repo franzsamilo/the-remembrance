@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PipelineStage, PHASE_COLORS, StageStatus } from "@/lib/pipelineConfig";
+import type { StatsData } from "@/lib/types";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                                 */
@@ -11,7 +12,7 @@ import { PipelineStage, PHASE_COLORS, StageStatus } from "@/lib/pipelineConfig";
 interface PipelineDetailProps {
   stage: PipelineStage;
   status: StageStatus;
-  stats: any;
+  stats: StatsData | null;
 }
 
 /* ------------------------------------------------------------------ */

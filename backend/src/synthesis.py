@@ -4,8 +4,22 @@ using Gemini. Returns narrative text plus per-triplet and per-lead explanations.
 """
 from typing import List, Dict, Any, Optional
 import json
+import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from src.config import Config, logger
+
+_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.IGNORECASE | re.MULTILINE)
+
+
+def _strip_markdown_fences(text: str) -> str:
+    """Strip surrounding ```json ... ``` (or bare ```) fences from an LLM reply.
+
+    Gemini occasionally wraps strict-JSON responses in a markdown code block;
+    parsing the raw payload then fails because of the fence markers. Removing
+    them before json.loads lets the primary parse succeed instead of falling
+    through to the substring-extraction fallback.
+    """
+    return _FENCE_RE.sub("", text).strip()
 
 
 async def generate_chunk_response(query: str, context_chunks: str) -> str:
@@ -40,13 +54,15 @@ Answer:"""
 async def generate_narrative_response(
     query: str,
     triplets: List[Dict[str, Any]],
-    leads: List[Dict[str, Optional[str]]] = [],
+    leads: Optional[List[Dict[str, Optional[str]]]] = None,
     include_explanations: bool = True,
 ):
     """
     Step 5: Synthesis Layer
     Converts graph triplets and community leads into an 'Analytical Briefing'.
     """
+    if leads is None:
+        leads = []
     if not triplets:
         return {
             "narrative_text": "I do not have record of that in my validated knowledge base. No supporting evidence was found in the graph.",
@@ -81,10 +97,13 @@ async def generate_narrative_response(
         temperature=0  # Deterministic: reproducible synthesis for evaluation
     )
 
+    # Avoid double-titling if the persona env already starts with "Lead".
+    _persona = Config.SYNTHESIS_PERSONA.strip()
+    _persona_phrase = _persona if _persona.lower().startswith("lead ") else f"Lead {_persona}"
     persona_line = (
-        f'You are the Lead {Config.SYNTHESIS_PERSONA} for "{Config.SYNTHESIS_FRAMEWORK_NAME}" framework.'
+        f'You are the {_persona_phrase} for "{Config.SYNTHESIS_FRAMEWORK_NAME}" framework.'
         if Config.SYNTHESIS_FRAMEWORK_NAME
-        else f"You are the Lead {Config.SYNTHESIS_PERSONA} providing analytical briefings."
+        else f"You are the {_persona_phrase} providing analytical briefings."
     )
 
     system_instruction = f"""
@@ -192,7 +211,7 @@ async def generate_narrative_response(
     """
 
     try:
-        logger.info(f"Synthesizing narrative for query: {query}")
+        logger.info("Synthesizing narrative for query: %s", query)
         response = await llm.ainvoke(prompt if include_explanations else prompt_simple)
         content = response.content.strip()
         if not include_explanations:
@@ -202,14 +221,15 @@ async def generate_narrative_response(
                 "lead_explanations": [],
                 "suggested_actions": [],
             }
+        unfenced = _strip_markdown_fences(content)
         try:
-            payload = json.loads(content)
+            payload = json.loads(unfenced)
         except json.JSONDecodeError:
-            start = content.find("{")
-            end = content.rfind("}")
+            start = unfenced.find("{")
+            end = unfenced.rfind("}")
             if start != -1 and end != -1 and end > start:
                 try:
-                    payload = json.loads(content[start : end + 1])
+                    payload = json.loads(unfenced[start : end + 1])
                 except json.JSONDecodeError:
                     return {
                         "narrative_text": content,
@@ -243,7 +263,7 @@ async def generate_narrative_response(
             "suggested_actions": actions if isinstance(actions, list) else [],
         }
     except Exception as e:
-        logger.error(f"Synthesis Error: {str(e)}")
+        logger.error("Synthesis Error: %s", e)
         return {
             "narrative_text": "Synthesis layer failed to perform discovery analysis.",
             "triplet_explanations": [],

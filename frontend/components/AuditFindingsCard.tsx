@@ -79,7 +79,7 @@ export default function AuditFindingsCard() {
       animate={{ opacity: 1, y: 0 }}
     >
       <Link
-        href="/audit"
+        href="/?tab=audit"
         className={`block border ${borderColor} rounded-lg ${bgTint} p-4 hover:shadow-md transition-shadow group`}
       >
         <div className="flex items-center justify-between">

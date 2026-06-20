@@ -2,18 +2,9 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, FileText, Link2 } from "lucide-react";
+import type { FlaggedEdge } from "@/lib/types";
 
-export interface FlaggedEdge {
-  source: string;
-  relation: string;
-  target: string;
-  plausibility_score: number;
-  audit_status: string;
-  source_docs: string[];
-  target_docs: string[];
-  cross_document: boolean;
-  description: string | null;
-}
+export type { FlaggedEdge };
 
 interface FlaggedEdgesProps {
   edges: FlaggedEdge[];

@@ -4,6 +4,7 @@ import React from "react";
 import { ShieldAlert } from "lucide-react";
 import { motion } from "framer-motion";
 import { Triplet } from "@/lib/types";
+import InfoTooltip from "@/components/InfoTooltip";
 
 interface GroundingErrorProps {
   message: string;
@@ -22,8 +23,13 @@ export default function GroundingError({ message, filteredTriplets }: GroundingE
       <div className="flex items-start gap-3">
         <ShieldAlert size={20} className="text-[var(--conflict-red)] shrink-0 mt-0.5" />
         <div className="flex-1">
-          <h4 className="font-semibold text-[var(--conflict-red)] text-sm uppercase tracking-wide mb-1" style={{ fontFamily: "EB Garamond, serif" }}>
-            Grounding Error
+          <h4 className="font-semibold text-[var(--conflict-red)] text-sm uppercase tracking-wide mb-1 inline-flex items-center gap-1.5" style={{ fontFamily: "EB Garamond, serif" }}>
+            No verified evidence
+            <InfoTooltip label="Why a refusal?">
+              The system found no facts in your documents reliable enough to
+              answer this question. Rather than guess or paraphrase, it tells
+              you so. This refusal is a feature, not a failure.
+            </InfoTooltip>
           </h4>
           <p className="text-sm text-[var(--ink-medium)]">{message}</p>
 
@@ -33,7 +39,7 @@ export default function GroundingError({ message, filteredTriplets }: GroundingE
                 onClick={() => setShowRejected(!showRejected)}
                 className="text-xs font-mono text-[var(--ink-light)] hover:text-[var(--ink-dark)] transition-colors"
               >
-                {showRejected ? "Hide" : "Show"} {filteredTriplets.length} rejected triplet{filteredTriplets.length !== 1 ? "s" : ""}
+                {showRejected ? "Hide" : "Show"} {filteredTriplets.length} fact{filteredTriplets.length !== 1 ? "s" : ""} that didn&apos;t meet the reliability bar
               </button>
 
               {showRejected && (

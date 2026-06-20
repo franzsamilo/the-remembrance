@@ -2,7 +2,6 @@
 Discovery generator: retrieves graph context, filters validated triplets,
 and synthesizes auditable narrative responses via the synthesis layer.
 """
-from langchain_google_genai import ChatGoogleGenerativeAI
 from src.config import Config, logger
 from src.retriever import GraphRetriever
 from src.synthesis import generate_narrative_response, generate_chunk_response
@@ -99,6 +98,67 @@ class DiscoveryGenerator:
             else:
                 lead_objects.append({"name": lead.strip(), "description": None})
         return lead_objects
+
+    async def generate_answer_graph_no_gnn(self, query, explain: bool = False):
+        """
+        Ablation: graph retrieval WITHOUT the plausibility filter. Isolates the
+        contribution of the GNN integrity layer by feeding synthesis the same
+        retrieved triplets the full pipeline would see, minus the τ-gate.
+
+        Returns the same shape as generate_answer so the chat / evaluation
+        pipelines treat it uniformly.
+        """
+        _, triplets, leads = self.retriever.retrieve(query)
+        # No τ filter. Triplets with audit=None survive too — this is the point
+        # of the ablation: show what happens when the GNN does NOT prune.
+        # filtered_triplets stays empty so the UI doesn't show a rejection pane.
+        if not triplets:
+            lead_objects = self._normalize_leads(leads)
+            return {
+                "narrative_text": None,
+                "grounding_error": True,
+                "message": "No retrieved evidence (ablation mode: graph_no_gnn).",
+                "triplets": [],
+                "filtered_triplets": [],
+                "leads": lead_objects,
+                "context_summary": "",
+                "suggested_actions": [],
+            }
+
+        lead_objects = self._normalize_leads(leads)
+        narrative_package = await generate_narrative_response(
+            query,
+            triplets,
+            lead_objects,
+            include_explanations=explain,
+        )
+
+        if explain:
+            triplet_explanations = narrative_package.get("triplet_explanations", [])
+            explanation_map = {}
+            for item in triplet_explanations:
+                key = (item.get("source"), item.get("relation"), item.get("target"))
+                explanation_map[key] = item.get("explanation")
+            lead_explanations = narrative_package.get("lead_explanations", [])
+            lead_explanation_map = {
+                item.get("name"): item.get("explanation") for item in lead_explanations
+            }
+            for t in triplets:
+                key = (t.get("source"), t.get("relation"), t.get("target"))
+                t["explanation"] = explanation_map.get(key)
+            for lead in lead_objects:
+                lead["explanation"] = lead_explanation_map.get(lead.get("name"))
+
+        return {
+            "narrative_text": narrative_package.get("narrative_text", ""),
+            "triplets": triplets,
+            "filtered_triplets": [],
+            "leads": lead_objects,
+            "context_summary": "\n".join(
+                f"({t['source']})-[{t['relation']}]->({t['target']})" for t in triplets
+            ),
+            "suggested_actions": narrative_package.get("suggested_actions", []),
+        }
 
     async def generate_answer_prompt_only(self, query: str):
         """

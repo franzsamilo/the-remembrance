@@ -419,8 +419,6 @@ async def process_documents():
             manifest["documents_failed"],
         )
         return manifest
-    finally:
-        pass  # Driver managed by DatabaseManager singleton
 
 
 if __name__ == "__main__":

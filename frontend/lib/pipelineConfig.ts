@@ -1,3 +1,5 @@
+import type { StatsData } from "@/lib/types";
+
 export type StageStatus = "ready" | "active" | "waiting" | "error";
 export type Phase = "feature" | "training" | "inference";
 
@@ -12,7 +14,7 @@ export interface PipelineStage {
   params: Record<string, string>;
   why: string;
   getStatus: (currentTask: string, graphState: string) => StageStatus;
-  getMetrics: (stats: any) => { label: string; value: string }[];
+  getMetrics: (stats: StatsData | null) => { label: string; value: string }[];
 }
 
 export const PHASE_COLORS: Record<Phase, { border: string; text: string; bg: string }> = {

@@ -43,6 +43,8 @@ htmlcov/
 # Data and Documents
 *.pdf
 backend/documents/
+# Exception: the corpus manifest is documentation, not a corpus file
+!backend/documents/CORPUS_MANIFEST.md
 
 # Backend specific overrides
 backend/venv*/
@@ -51,6 +53,9 @@ backend/__pycache__/
 backend/output*.txt
 backend/output*.json
 framework.log
+
+# Next.js / TypeScript build cache
+*.tsbuildinfo
 
 # Superpowers brainstorm artifacts
 .superpowers/

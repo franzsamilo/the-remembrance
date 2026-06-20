@@ -6,9 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PIPELINE_STAGES } from "@/lib/pipelineConfig";
 import PipelineStrip from "@/components/PipelineStrip";
 import PipelineDetail from "@/components/PipelineDetail";
+import type { StatsData } from "@/lib/types";
 
 interface PipelineFlowProps {
-  stats: any;
+  stats: StatsData | null;
   currentTask: string;
 }
 

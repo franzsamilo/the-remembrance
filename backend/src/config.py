@@ -101,6 +101,9 @@ class Config:
     EVALUATION_RESULTS_PATH = os.getenv("EVALUATION_RESULTS_PATH") or os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "evaluation_results.json"
     )
+    # Cap concurrent eval pipelines (synthesis + grounding judge + faithfulness judge
+    # per query) so we don't trip Gemini's per-minute rate limits during /evaluate.
+    EVALUATION_MAX_CONCURRENCY = int(os.getenv("EVALUATION_MAX_CONCURRENCY", 3))
     
     # Framework branding (consumer-specific via env)
     API_TITLE = os.getenv("API_TITLE", "Knowledge Graph Framework API")

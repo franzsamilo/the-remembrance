@@ -391,93 +391,42 @@ def _evaluate_mrr(
     return float(sum(reciprocal_ranks) / len(reciprocal_ranks)) if reciprocal_ranks else None
 
 
-def run_audit():
-    """Train and evaluate a local CompGCN-style plausibility model and sync scores."""
-    from src.db import DatabaseManager
-    from src.gnn_loader import GNNLoader
+def _train_loop(
+    model: CompGCNAuditModel,
+    data,
+    optimizer,
+    scheduler,
+    criterion,
+    train_idx: torch.Tensor,
+    val_idx: torch.Tensor,
+    neg_ratio: int,
+    label_smoothing: float,
+    loss_mode: str,
+    bpr_margin: float,
+    positive_triples: set[tuple[int, int, int]],
+    node_type_tensor: torch.Tensor | None,
+    type_pools: dict[int, torch.Tensor] | None,
+    num_rels: int,
+) -> dict:
+    """Run the CompGCN training loop with early stopping + checkpointing.
 
-    # Reproducible runs: same seed yields same AUC/MRR for panel evaluation
-    seed = Config.COMPGCN_SEED
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-    loader = GNNLoader()
-    result = loader.fetch_graph_data()
-
-    if not result:
-        logger.error("Audit failed: No graph data found.")
-        return
-
-    data, rel_types, _node_id_map, label_to_id = result
-    num_rels = len(rel_types)
-    if num_rels == 0:
-        logger.warning("Audit skipped: graph has no auditable relationship types.")
-        return
-
-    audit_run_id = str(uuid.uuid4())
-    audit_started_at = _utc_now_iso()
-    train_idx, val_idx = _split_edge_indices(
-        data.edge_index.size(1),
-        Config.COMPGCN_VALIDATION_SPLIT,
-    )
-    positive_triples = _build_positive_triples(data)
-
-    neg_sampling_mode = Config.COMPGCN_NEG_SAMPLING
-    node_type_tensor = data.node_type if neg_sampling_mode == "type_aware" else None
-    type_pools = _build_type_pools(data.node_type) if neg_sampling_mode == "type_aware" else None
-
-    if neg_sampling_mode == "type_aware":
-        pool_sizes = {
-            lbl: int(type_pools.get(i, torch.empty(0)).numel())
-            for lbl, i in label_to_id.items()
-        }
-        logger.info("Type-aware negative sampling active. Pool sizes: %s", pool_sizes)
-        if not type_pools:
-            logger.warning("No label pools built — falling back to uniform sampling.")
-            node_type_tensor = None
-            type_pools = None
-    else:
-        pool_sizes = {}
-        logger.info("Uniform negative sampling active.")
-
-    neg_ratio = max(1, Config.COMPGCN_NEG_RATIO)
-    label_smoothing = Config.COMPGCN_LABEL_SMOOTHING
+    Returns the bookkeeping needed by callers: best state dict, best AUC and
+    epoch, last train loss, per-epoch metrics, and the final epoch index plus
+    a flag indicating whether the patience counter tripped early stopping.
+    """
     pos_target = 1.0 - label_smoothing
     neg_target = label_smoothing
-    loss_mode = Config.COMPGCN_LOSS
-    bpr_margin = Config.COMPGCN_BPR_MARGIN
-
-    model = CompGCNAuditModel(
-        in_channels=data.x.size(1),
-        hidden_channels=Config.COMPGCN_HIDDEN_CHANNELS,
-        num_relations=num_rels,
-        dropout=Config.COMPGCN_DROPOUT,
-        decoder=Config.COMPGCN_DECODER,
-    )
-    optimizer = torch.optim.Adam(
-        model.parameters(),
-        lr=Config.COMPGCN_LEARNING_RATE,
-        weight_decay=Config.COMPGCN_WEIGHT_DECAY,
-    )
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="max", factor=0.5, patience=5, min_lr=1e-5
-    )
-    criterion = nn.BCEWithLogitsLoss()
-    logger.info(
-        "CompGCN training loss=%s (margin=%s) decoder=%s",
-        loss_mode, bpr_margin, Config.COMPGCN_DECODER,
-    )
 
     best_state = copy.deepcopy(model.state_dict())
     best_auc = float("-inf")
-    best_epoch_idx = None  # Track best epoch (1-indexed)
+    best_epoch_idx = None  # 1-indexed
     final_train_loss = None
     patience_counter = 0
-    epoch_metrics = []
+    epoch_metrics: list[dict] = []
+    last_epoch = 0
 
     for epoch in range(Config.COMPGCN_EPOCHS):
+        last_epoch = epoch
         model.train()
         optimizer.zero_grad()
 
@@ -593,7 +542,36 @@ def run_audit():
                 f"{current_auc:.4f}" if current_auc is not None else "unavailable",
             )
 
-    model.load_state_dict(best_state)
+    return {
+        "best_state": best_state,
+        "best_auc": best_auc,
+        "best_epoch_idx": best_epoch_idx,
+        "final_train_loss": final_train_loss,
+        "patience_counter": patience_counter,
+        "epoch_metrics": epoch_metrics,
+        "last_epoch": last_epoch,
+    }
+
+
+def _evaluate_final_metrics(
+    model: CompGCNAuditModel,
+    data,
+    train_idx: torch.Tensor,
+    val_idx: torch.Tensor,
+    neg_ratio: int,
+    positive_triples: set[tuple[int, int, int]],
+    node_type_tensor: torch.Tensor | None,
+    type_pools: dict[int, torch.Tensor] | None,
+    neg_sampling_mode: str,
+) -> dict:
+    """Compute final AUC, dual MRR (uniform + type-aware), and plausibility scores.
+
+    Expects ``model`` already loaded with the best checkpointed state. The MRR
+    pair is computed regardless of training mode so the thesis table shows the
+    full picture; the headline ``final_mrr`` follows ``neg_sampling_mode``.
+    Train/val indices must be the same ones used by ``_train_loop`` to keep the
+    held-out split deterministic.
+    """
     model.eval()
     with torch.no_grad():
         encoded_nodes = model.encode(data.x, data.edge_index, data.edge_type)
@@ -634,9 +612,257 @@ def run_audit():
                 node_type=data.node_type, type_pools=type_pools_for_eval,
             )
 
-        # Pick headline MRR based on training mode: if trained type-aware,
-        # the type-aware MRR is what we ship; if trained uniform, uniform.
         final_mrr = mrr_type_aware if neg_sampling_mode == "type_aware" else mrr_uniform
+
+    return {
+        "plausibility_scores": plausibility_scores,
+        "final_auc": final_auc,
+        "mrr_uniform": mrr_uniform,
+        "mrr_type_aware": mrr_type_aware,
+        "final_mrr": final_mrr,
+    }
+
+
+def _write_plausibility_scores(
+    session,
+    data,
+    plausibility_scores: torch.Tensor,
+    audit_completed_at: str,
+) -> None:
+    """Batch-update per-edge plausibility/audit metadata in Neo4j."""
+    updates = []
+    for i in range(data.edge_index.size(1)):
+        updates.append({
+            "rel_id": data.edge_rel_id[i],
+            "score": float(plausibility_scores[i].item()),
+        })
+    batch_size = 500
+    for batch_start in range(0, len(updates), batch_size):
+        batch = updates[batch_start:batch_start + batch_size]
+        session.run(
+            """
+            UNWIND $updates AS update
+            MATCH ()-[r]->()
+            WHERE elementId(r) = update.rel_id
+            SET r.plausibility_score = update.score,
+                r.audit_score = update.score,
+                r.experimental_score = update.score,
+                r.audit_status = 'trained_experimental',
+                r.audit_mode = 'compgcn',
+                r.audit_model = 'CompGCNAuditModel',
+                r.audit_updated_at = $updated_at
+            """,
+            updates=batch,
+            updated_at=audit_completed_at,
+        )
+
+
+def _persist_audit_run(
+    session,
+    *,
+    audit_run_id: str,
+    audit_status: str,
+    audit_started_at: str,
+    audit_completed_at: str,
+    data,
+    num_rels: int,
+    neg_ratio: int,
+    loss_mode: str,
+    bpr_margin: float,
+    neg_sampling_mode: str,
+    pool_sizes: dict,
+    auc_guardrail: float,
+    final_auc: float | None,
+    final_mrr: float | None,
+    mrr_uniform: float | None,
+    mrr_type_aware: float | None,
+    final_train_loss: float | None,
+) -> None:
+    """MERGE the AuditRun node summarizing one training run."""
+    session.run(
+        f"""
+        MERGE (run:{Config.AUDIT_RUN_LABEL} {{run_id: $run_id}})
+        SET run.status = $status,
+            run.audit_mode = 'compgcn',
+            run.audit_model = 'CompGCNAuditModel',
+            run.started_at = $started_at,
+            run.completed_at = $completed_at,
+            run.audited_relationships = $audited_relationships,
+            run.graph_nodes = $graph_nodes,
+            run.graph_relationship_types = $graph_relationship_types,
+            run.hidden_channels = $hidden_channels,
+            run.epochs = $epochs,
+            run.learning_rate = $learning_rate,
+            run.weight_decay = $weight_decay,
+            run.validation_split = $validation_split,
+            run.patience = $patience,
+            run.dropout = $dropout,
+            run.label_smoothing = $label_smoothing,
+            run.grad_clip = $grad_clip,
+            run.neg_ratio = $neg_ratio,
+            run.loss = $loss,
+            run.bpr_margin = $bpr_margin,
+            run.neg_sampling = $neg_sampling,
+            run.label_pool_sizes = $label_pool_sizes,
+            run.auc_guardrail_min = $auc_guardrail_min,
+            run.auc_roc = $auc_roc,
+            run.mrr = $mrr,
+            run.mrr_uniform = $mrr_uniform,
+            run.mrr_type_aware = $mrr_type_aware,
+            run.train_loss = $train_loss,
+            run.adv_temp = $adv_temp,
+            run.decoder = $decoder
+        """,
+        run_id=audit_run_id,
+        status=audit_status,
+        started_at=audit_started_at,
+        completed_at=audit_completed_at,
+        audited_relationships=int(data.edge_index.size(1)),
+        graph_nodes=int(data.x.size(0)),
+        graph_relationship_types=int(num_rels),
+        hidden_channels=Config.COMPGCN_HIDDEN_CHANNELS,
+        epochs=Config.COMPGCN_EPOCHS,
+        learning_rate=Config.COMPGCN_LEARNING_RATE,
+        weight_decay=Config.COMPGCN_WEIGHT_DECAY,
+        validation_split=Config.COMPGCN_VALIDATION_SPLIT,
+        patience=Config.COMPGCN_PATIENCE,
+        dropout=Config.COMPGCN_DROPOUT,
+        label_smoothing=Config.COMPGCN_LABEL_SMOOTHING,
+        grad_clip=Config.COMPGCN_GRAD_CLIP,
+        neg_ratio=neg_ratio,
+        loss=loss_mode,
+        bpr_margin=bpr_margin,
+        neg_sampling=neg_sampling_mode,
+        label_pool_sizes=json.dumps(pool_sizes),
+        auc_guardrail_min=auc_guardrail,
+        auc_roc=final_auc,
+        mrr=final_mrr,
+        mrr_uniform=mrr_uniform,
+        mrr_type_aware=mrr_type_aware,
+        train_loss=final_train_loss,
+        adv_temp=float(Config.COMPGCN_ADV_TEMP),
+        decoder=Config.COMPGCN_DECODER,
+    )
+
+
+def run_audit():
+    """Train and evaluate a local CompGCN-style plausibility model and sync scores."""
+    from src.db import DatabaseManager
+    from src.gnn_loader import GNNLoader
+
+    # Reproducible runs: same seed yields same AUC/MRR for panel evaluation
+    seed = Config.COMPGCN_SEED
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    loader = GNNLoader()
+    result = loader.fetch_graph_data()
+
+    if not result:
+        logger.error("Audit failed: No graph data found.")
+        return
+
+    data, rel_types, _node_id_map, label_to_id = result
+    num_rels = len(rel_types)
+    if num_rels == 0:
+        logger.warning("Audit skipped: graph has no auditable relationship types.")
+        return
+
+    audit_run_id = str(uuid.uuid4())
+    audit_started_at = _utc_now_iso()
+    train_idx, val_idx = _split_edge_indices(
+        data.edge_index.size(1),
+        Config.COMPGCN_VALIDATION_SPLIT,
+    )
+    positive_triples = _build_positive_triples(data)
+
+    neg_sampling_mode = Config.COMPGCN_NEG_SAMPLING
+    node_type_tensor = data.node_type if neg_sampling_mode == "type_aware" else None
+    type_pools = _build_type_pools(data.node_type) if neg_sampling_mode == "type_aware" else None
+
+    if neg_sampling_mode == "type_aware":
+        pool_sizes = {
+            lbl: int(type_pools.get(i, torch.empty(0)).numel())
+            for lbl, i in label_to_id.items()
+        }
+        logger.info("Type-aware negative sampling active. Pool sizes: %s", pool_sizes)
+        if not type_pools:
+            logger.warning("No label pools built — falling back to uniform sampling.")
+            node_type_tensor = None
+            type_pools = None
+    else:
+        pool_sizes = {}
+        logger.info("Uniform negative sampling active.")
+
+    neg_ratio = max(1, Config.COMPGCN_NEG_RATIO)
+    label_smoothing = Config.COMPGCN_LABEL_SMOOTHING
+    loss_mode = Config.COMPGCN_LOSS
+    bpr_margin = Config.COMPGCN_BPR_MARGIN
+
+    model = CompGCNAuditModel(
+        in_channels=data.x.size(1),
+        hidden_channels=Config.COMPGCN_HIDDEN_CHANNELS,
+        num_relations=num_rels,
+        dropout=Config.COMPGCN_DROPOUT,
+        decoder=Config.COMPGCN_DECODER,
+    )
+    optimizer = torch.optim.Adam(
+        model.parameters(),
+        lr=Config.COMPGCN_LEARNING_RATE,
+        weight_decay=Config.COMPGCN_WEIGHT_DECAY,
+    )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="max", factor=0.5, patience=5, min_lr=1e-5
+    )
+    criterion = nn.BCEWithLogitsLoss()
+    logger.info(
+        "CompGCN training loss=%s (margin=%s) decoder=%s",
+        loss_mode, bpr_margin, Config.COMPGCN_DECODER,
+    )
+
+    train_result = _train_loop(
+        model=model,
+        data=data,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        criterion=criterion,
+        train_idx=train_idx,
+        val_idx=val_idx,
+        neg_ratio=neg_ratio,
+        label_smoothing=label_smoothing,
+        loss_mode=loss_mode,
+        bpr_margin=bpr_margin,
+        positive_triples=positive_triples,
+        node_type_tensor=node_type_tensor,
+        type_pools=type_pools,
+        num_rels=num_rels,
+    )
+    best_state = train_result["best_state"]
+    best_epoch_idx = train_result["best_epoch_idx"]
+    final_train_loss = train_result["final_train_loss"]
+    patience_counter = train_result["patience_counter"]
+    epoch_metrics = train_result["epoch_metrics"]
+    last_epoch = train_result["last_epoch"]
+
+    model.load_state_dict(best_state)
+    metrics = _evaluate_final_metrics(
+        model=model,
+        data=data,
+        train_idx=train_idx,
+        val_idx=val_idx,
+        neg_ratio=neg_ratio,
+        positive_triples=positive_triples,
+        node_type_tensor=node_type_tensor,
+        type_pools=type_pools,
+        neg_sampling_mode=neg_sampling_mode,
+    )
+    final_auc = metrics["final_auc"]
+    mrr_uniform = metrics["mrr_uniform"]
+    mrr_type_aware = metrics["mrr_type_aware"]
+    final_mrr = metrics["final_mrr"]
+    plausibility_scores = metrics["plausibility_scores"]
 
     auc_guardrail = Config.COMPGCN_AUC_GUARDRAIL
     guardrail_tripped = final_auc is not None and final_auc < auc_guardrail
@@ -652,7 +878,7 @@ def run_audit():
         global _training_history
         _training_history = {
             "epochs": epoch_metrics,
-            "early_stop_epoch": (epoch + 1) if patience_counter >= Config.COMPGCN_PATIENCE else None,
+            "early_stop_epoch": (last_epoch + 1) if patience_counter >= Config.COMPGCN_PATIENCE else None,
             "best_epoch": best_epoch_idx,
             "final_auc_roc": round(final_auc, 4) if final_auc is not None else None,
             "final_mrr": round(final_mrr, 4) if final_mrr is not None else None,
@@ -693,95 +919,27 @@ def run_audit():
         else:
             logger.info("Syncing CompGCN plausibility scores to Neo4j...")
             audit_status = "trained_experimental"
-            updates = []
-            for i in range(data.edge_index.size(1)):
-                updates.append({
-                    "rel_id": data.edge_rel_id[i],
-                    "score": float(plausibility_scores[i].item()),
-                })
-            batch_size = 500
-            for batch_start in range(0, len(updates), batch_size):
-                batch = updates[batch_start:batch_start + batch_size]
-                session.run(
-                    """
-                    UNWIND $updates AS update
-                    MATCH ()-[r]->()
-                    WHERE elementId(r) = update.rel_id
-                    SET r.plausibility_score = update.score,
-                        r.audit_score = update.score,
-                        r.experimental_score = update.score,
-                        r.audit_status = 'trained_experimental',
-                        r.audit_mode = 'compgcn',
-                        r.audit_model = 'CompGCNAuditModel',
-                        r.audit_updated_at = $updated_at
-                    """,
-                    updates=batch,
-                    updated_at=audit_completed_at,
-                )
+            _write_plausibility_scores(session, data, plausibility_scores, audit_completed_at)
 
-        session.run(
-            f"""
-            MERGE (run:{Config.AUDIT_RUN_LABEL} {{run_id: $run_id}})
-            SET run.status = $status,
-                run.audit_mode = 'compgcn',
-                run.audit_model = 'CompGCNAuditModel',
-                run.started_at = $started_at,
-                run.completed_at = $completed_at,
-                run.audited_relationships = $audited_relationships,
-                run.graph_nodes = $graph_nodes,
-                run.graph_relationship_types = $graph_relationship_types,
-                run.hidden_channels = $hidden_channels,
-                run.epochs = $epochs,
-                run.learning_rate = $learning_rate,
-                run.weight_decay = $weight_decay,
-                run.validation_split = $validation_split,
-                run.patience = $patience,
-                run.dropout = $dropout,
-                run.label_smoothing = $label_smoothing,
-                run.grad_clip = $grad_clip,
-                run.neg_ratio = $neg_ratio,
-                run.loss = $loss,
-                run.bpr_margin = $bpr_margin,
-                run.neg_sampling = $neg_sampling,
-                run.label_pool_sizes = $label_pool_sizes,
-                run.auc_guardrail_min = $auc_guardrail_min,
-                run.auc_roc = $auc_roc,
-                run.mrr = $mrr,
-                run.mrr_uniform = $mrr_uniform,
-                run.mrr_type_aware = $mrr_type_aware,
-                run.train_loss = $train_loss,
-                run.adv_temp = $adv_temp,
-                run.decoder = $decoder
-            """,
-            run_id=audit_run_id,
-            status=audit_status,
-            started_at=audit_started_at,
-            completed_at=audit_completed_at,
-            audited_relationships=int(data.edge_index.size(1)),
-            graph_nodes=int(data.x.size(0)),
-            graph_relationship_types=int(num_rels),
-            hidden_channels=Config.COMPGCN_HIDDEN_CHANNELS,
-            epochs=Config.COMPGCN_EPOCHS,
-            learning_rate=Config.COMPGCN_LEARNING_RATE,
-            weight_decay=Config.COMPGCN_WEIGHT_DECAY,
-            validation_split=Config.COMPGCN_VALIDATION_SPLIT,
-            patience=Config.COMPGCN_PATIENCE,
-            dropout=Config.COMPGCN_DROPOUT,
-            label_smoothing=Config.COMPGCN_LABEL_SMOOTHING,
-            grad_clip=Config.COMPGCN_GRAD_CLIP,
+        _persist_audit_run(
+            session,
+            audit_run_id=audit_run_id,
+            audit_status=audit_status,
+            audit_started_at=audit_started_at,
+            audit_completed_at=audit_completed_at,
+            data=data,
+            num_rels=num_rels,
             neg_ratio=neg_ratio,
-            loss=loss_mode,
+            loss_mode=loss_mode,
             bpr_margin=bpr_margin,
-            neg_sampling=neg_sampling_mode,
-            label_pool_sizes=json.dumps(pool_sizes),
-            auc_guardrail_min=auc_guardrail,
-            auc_roc=final_auc,
-            mrr=final_mrr,
+            neg_sampling_mode=neg_sampling_mode,
+            pool_sizes=pool_sizes,
+            auc_guardrail=auc_guardrail,
+            final_auc=final_auc,
+            final_mrr=final_mrr,
             mrr_uniform=mrr_uniform,
             mrr_type_aware=mrr_type_aware,
-            train_loss=final_train_loss,
-            adv_temp=float(Config.COMPGCN_ADV_TEMP),
-            decoder=Config.COMPGCN_DECODER,
+            final_train_loss=final_train_loss,
         )
         logger.info("Neo4j CompGCN audit sync complete (status=%s).", audit_status)
 

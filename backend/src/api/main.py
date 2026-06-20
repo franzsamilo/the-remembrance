@@ -88,11 +88,50 @@ def _derive_audit_state(audit_record) -> str:
 
     return "partial"
 
+def _ensure_neo4j_indexes() -> None:
+    """Create the Cypher indexes the hot path expects. Idempotent.
+
+    Without these, every retrieval/ingestion/embed query falls back to a full
+    label scan — visibly slow during a live demo on 5K+ nodes. Calling this
+    once at startup is safe (`IF NOT EXISTS`); if Neo4j is unreachable we
+    log and continue so a bad lifespan doesn't block the server from booting.
+    """
+    # Note on relationship lookups by elementId (the per-edge plausibility
+    # writeback path in gnn_module.py): `elementId(r)` is a function on internal
+    # state, not a stored property, so a regular index can't be created against
+    # it. Neo4j 5+ resolves `MATCH ()-[r]-() WHERE elementId(r) = $id` via the
+    # built-in DirectedRelationshipByElementIdSeek operator — already O(1) per
+    # rel — so no extra index is required there.
+    statements = [
+        f"CREATE INDEX entity_embedding_lookup IF NOT EXISTS "
+        f"FOR (n:Entity) ON (n.embedding_model, n.embedding_dimension)",
+        f"CREATE INDEX entity_name_lookup IF NOT EXISTS "
+        f"FOR (n:Entity) ON (n.name)",
+        f"CREATE INDEX source_document_filename IF NOT EXISTS "
+        f"FOR (d:{Config.SOURCE_DOCUMENT_LABEL}) ON (d.filename)",
+        f"CREATE INDEX audit_run_completed_at IF NOT EXISTS "
+        f"FOR (r:{Config.AUDIT_RUN_LABEL}) ON (r.completed_at)",
+        # AuditRun nodes are MERGE'd on run_id at the end of every training run
+        # and at recovery; without this index the MERGE does a label scan.
+        f"CREATE INDEX audit_run_id_lookup IF NOT EXISTS "
+        f"FOR (r:{Config.AUDIT_RUN_LABEL}) ON (r.run_id)",
+    ]
+    try:
+        driver = DatabaseManager.get_driver()
+        with driver.session(database=Config.NEO4J_DATABASE) as session:
+            for stmt in statements:
+                session.run(stmt)
+        logger.info("Neo4j indexes ensured (%s statements).", len(statements))
+    except Exception as exc:
+        logger.warning("Could not create Neo4j indexes (continuing): %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Initialize Neo4j connectivity
+    # Startup: Initialize Neo4j connectivity + ensure indexes
     logger.info("Initializing Neo4j connectivity...")
     DatabaseManager.get_driver()
+    _ensure_neo4j_indexes()
     yield
     # Shutdown: Close Neo4j connectivity
     logger.info("Closing Neo4j connectivity...")
@@ -104,6 +143,18 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+
+def _redact_neo4j_uri(uri: str | None) -> str:
+    """Strip credentials AND hostname from a Neo4j URI for /config showcase.
+
+    Old behaviour leaked the Aura instance hostname (e.g. `abc1234.databases.neo4j.io`)
+    into the /config response. Now returns the scheme only (e.g. `neo4j+s://*****`).
+    """
+    if not uri:
+        return "Not configured"
+    scheme = uri.split("://", 1)[0] if "://" in uri else "neo4j"
+    return f"{scheme}://*****"
 
 # Rate limiting (in-memory, per IP)
 _rate_limit_store = defaultdict(list)
@@ -134,9 +185,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 # Enable CORS for frontend communication
 _cors_origins = Config.CORS_ORIGINS.split(",") if Config.CORS_ORIGINS else ["*"]
+_cors_origin_list = [o.strip() for o in _cors_origins if o.strip()]
+
+# Browsers reject `*` + allow_credentials=True. In production-style deploys
+# (DEBUG=false), refuse the unsafe combo at startup rather than letting the
+# server come up with broken CORS.
+if "*" in _cors_origin_list and not Config.DEBUG:
+    raise RuntimeError(
+        "CORS_ORIGINS=* is unsafe with allow_credentials=True. "
+        "Set CORS_ORIGINS to an explicit comma-separated list (e.g. "
+        "'http://localhost:3000') or set DEBUG=true for local development."
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in _cors_origins if o.strip()],
+    allow_origins=_cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -214,6 +277,11 @@ def _empty_stats_response(status: str = "unavailable", message: str = "Could not
         "research_kpis": {"gnn_auc_roc": None, "gnn_mrr": None, "grounding_score": None, "faithfulness_score": None},
         "ablation": None,
         "stage_timings": {},
+        "inference_config": {
+            "grounding_threshold": Config.GROUNDING_MIN_SCORE,
+            "retrieval_seed_limit": Config.RETRIEVAL_SEED_LIMIT,
+            "retrieval_expansion_limit": Config.RETRIEVAL_EXPANSION_LIMIT,
+        },
     }
 
 
@@ -327,13 +395,25 @@ async def get_stats():
                 ),
                 "stage_timings": _system_state.stage_timings,
                 "ablation": ablation_results,
+                "inference_config": {
+                    "grounding_threshold": Config.GROUNDING_MIN_SCORE,
+                    "retrieval_seed_limit": Config.RETRIEVAL_SEED_LIMIT,
+                    "retrieval_expansion_limit": Config.RETRIEVAL_EXPANSION_LIMIT,
+                },
             }
-            logger.info(f"Stats retrieved: {stats['nodes']} nodes, {stats['relationships']} rels, task: {_system_state.status}")
+            logger.info(
+                "Stats retrieved: %s nodes, %s rels, task: %s",
+                stats["nodes"],
+                stats["relationships"],
+                _system_state.status,
+            )
             return stats
     except Exception as e:
-        logger.error(f"Failed to fetch stats: {str(e)}")
-        out = _empty_stats_response("error", str(e))
-        return out
+        logger.error("Failed to fetch stats: %s", e)
+        return _empty_stats_response(
+            "error",
+            "Stats unavailable — see server logs for details.",
+        )
 
 MAX_UPLOAD_BYTES = Config.UPLOAD_MAX_SIZE_MB * 1024 * 1024
 
@@ -368,12 +448,12 @@ async def upload_document(file: UploadFile = File(...)):
                         detail=f"File too large. Maximum size is {Config.UPLOAD_MAX_SIZE_MB}MB.",
                     )
                 buffer.write(chunk)
-        logger.info(f"File uploaded: {safe_name}")
+        logger.info("File uploaded: %s", safe_name)
         return {"filename": safe_name, "status": "uploaded"}
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Upload failed: {str(e)}")
+        logger.error("Upload failed: %s", e)
         if os.path.exists(file_path):
             try:
                 os.remove(file_path)
@@ -384,9 +464,19 @@ async def upload_document(file: UploadFile = File(...)):
 @app.post("/reset")
 async def reset_graph(request: Request):
     """Wipes the entire Neo4j database to allow for a fresh framework start.
-    Requires X-Admin-Key header matching ADMIN_API_KEY env var."""
+    Requires X-Admin-Key header matching ADMIN_API_KEY env var. Default-denies
+    if ADMIN_API_KEY is unset — explicit opt-out via RESET_ALLOW_UNAUTHENTICATED=true
+    is required for unauthenticated local dev (NEVER set this in production)."""
     admin_key = os.getenv("ADMIN_API_KEY")
-    if admin_key:
+    if not admin_key:
+        if os.getenv("RESET_ALLOW_UNAUTHENTICATED", "false").strip().lower() != "true":
+            raise HTTPException(
+                status_code=403,
+                detail="ADMIN_API_KEY is not configured. /reset is disabled. "
+                "Set ADMIN_API_KEY or RESET_ALLOW_UNAUTHENTICATED=true for local dev.",
+            )
+        logger.warning("/reset is being called WITHOUT authentication (RESET_ALLOW_UNAUTHENTICATED=true).")
+    else:
         provided = request.headers.get("X-Admin-Key", "")
         if provided != admin_key:
             raise HTTPException(status_code=403, detail="Invalid or missing admin key.")
@@ -398,7 +488,7 @@ async def reset_graph(request: Request):
             logger.warning("FRAMEWORK RESET: Database has been wiped.")
             return {"status": "success", "message": "Graph database has been cleared."}
     except Exception as e:
-        logger.error(f"Reset failed: {str(e)}")
+        logger.error("Reset failed: %s", e)
         raise HTTPException(status_code=500, detail="Database reset failed. Please try again.")
 
 @app.post("/ingest")
@@ -429,8 +519,8 @@ async def trigger_ingestion(background_tasks: BackgroundTasks):
                 manifest.get("documents_failed"),
             )
         except Exception as e:
-            _system_state.status = f"Error: {str(e)}"
-            logger.error(f"Pipeline failure: {str(e)}")
+            _system_state.status = "Error — see server logs for details."
+            logger.error("Pipeline failure: %s", e)
 
     background_tasks.add_task(run_pipeline)
     return {"message": "Pipeline triggered. Monitor status via /stats."}
@@ -441,7 +531,21 @@ from typing import Literal
 class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=5000)
     explain: bool = False
-    mode: Literal["graph", "prompt_only"] = "graph"
+    mode: Literal["graph", "graph_no_gnn", "prompt_only"] = "graph"
+
+# Module-level DiscoveryGenerator singleton. The constructor instantiates a
+# SentenceTransformer (~250MB on disk, ~1-2s to load even with HuggingFace
+# disk cache). Re-creating it per /chat request adds visible latency to every
+# demo query. The generator is stateless; one instance is reused.
+_generator_singleton: DiscoveryGenerator | None = None
+
+
+def get_generator() -> DiscoveryGenerator:
+    global _generator_singleton
+    if _generator_singleton is None:
+        _generator_singleton = DiscoveryGenerator()
+    return _generator_singleton
+
 
 def _is_grounding_error(result: dict) -> bool:
     """True if the generator returned a structured grounding error."""
@@ -471,10 +575,16 @@ async def chat_discovery_stream(request: ChatRequest):
     """Streams chat response: narrative text in chunks, then metadata."""
     async def generate():
         try:
-            generator = DiscoveryGenerator()
+            generator = get_generator()
             if request.mode == "prompt_only":
                 result = await generator.generate_answer_prompt_only(request.query)
                 grounding_status = "OK - Prompt Only (Ablation)"
+            elif request.mode == "graph_no_gnn":
+                result = await generator.generate_answer_graph_no_gnn(request.query, explain=request.explain)
+                if _is_grounding_error(result):
+                    yield f"data: {json.dumps({'type': 'grounding_error', **_grounding_error_response(result)})}\n\n"
+                    return
+                grounding_status = "OK - Graph (No GNN Filter — Ablation)"
             else:
                 result = await generator.generate_answer(request.query, explain=request.explain)
                 if _is_grounding_error(result):
@@ -482,15 +592,30 @@ async def chat_discovery_stream(request: ChatRequest):
                     return
                 grounding_status = "OK - Local Graph"
             narrative = result.get("narrative_text", "")
-            chunk_size = 40
+            # Narrative is fully generated before streaming begins (the LLM call
+            # blocks until completion). The chunking exists ONLY to make it
+            # render progressively in the UI. Larger chunks + shorter delay
+            # cut the cosmetic latency from ~1s to ~250ms on typical responses
+            # without losing the streaming illusion.
+            chunk_size = 60
+            chunk_delay = 0.008
             for i in range(0, len(narrative), chunk_size):
                 chunk = narrative[i : i + chunk_size]
                 yield f"data: {json.dumps({'type': 'chunk', 'text': chunk})}\n\n"
-                await asyncio.sleep(0.02)
+                await asyncio.sleep(chunk_delay)
             yield f"data: {json.dumps({'type': 'done', 'triplets': result.get('triplets', []), 'filtered_triplets': result.get('filtered_triplets', []), 'leads': result.get('leads', []), 'suggested_actions': result.get('suggested_actions', []), 'grounding_status': grounding_status})}\n\n"
         except Exception as e:
-            logger.error(f"Stream chat failed: {e}")
-            yield f"data: {json.dumps({'type': 'error', 'narrative_text': str(e)})}\n\n"
+            logger.error("Stream chat failed: %s", e)
+            yield (
+                "data: "
+                + json.dumps(
+                    {
+                        "type": "error",
+                        "narrative_text": "Stream chat failed — see server logs for details.",
+                    }
+                )
+                + "\n\n"
+            )
 
     return StreamingResponse(
         generate(),
@@ -505,13 +630,22 @@ async def chat_discovery(request: ChatRequest):
     """Answers research queries using local graph retrieval + GNN-filtered synthesis."""
     # Path 0: Prompt-only ablation - bypasses graph
     if request.mode == "prompt_only":
-        generator = DiscoveryGenerator()
+        generator = get_generator()
         result = await generator.generate_answer_prompt_only(request.query)
         result["grounding_status"] = "OK - Prompt Only (Ablation)"
         return result
 
-    # Path 1: Local retrieval + synthesis
-    generator = DiscoveryGenerator()
+    # Path 1: Graph retrieval without GNN filter (isolates GNN's contribution)
+    if request.mode == "graph_no_gnn":
+        generator = get_generator()
+        result = await generator.generate_answer_graph_no_gnn(request.query, explain=request.explain)
+        if _is_grounding_error(result):
+            return _grounding_error_response(result)
+        result["grounding_status"] = "OK - Graph (No GNN Filter — Ablation)"
+        return result
+
+    # Path 2: Local retrieval + synthesis + GNN filter (full stack, default)
+    generator = get_generator()
     result = await generator.generate_answer(request.query, explain=request.explain)
     if _is_grounding_error(result):
         return _grounding_error_response(result)
@@ -578,8 +712,9 @@ async def trigger_ablation_evaluation(background_tasks: BackgroundTasks):
     async def run_ablation():
         try:
             _system_state.status = "Running Ablation Evaluation..."
-            logger.info("Starting ablation evaluation (2 modes)...")
+            logger.info("Starting ablation evaluation (3 modes)...")
             await run_grounding_evaluation(mode="full_stack")
+            await run_grounding_evaluation(mode="graph_no_gnn")
             await run_grounding_evaluation(mode="prompt_only")
             _system_state.status = "Idle"
             logger.info("Ablation evaluation complete.")
@@ -783,7 +918,7 @@ async def list_documents():
     if not os.path.exists(docs_path):
         return {"documents": []}
     files = [f for f in os.listdir(docs_path) if f.lower().endswith(".pdf")]
-    logger.info(f"Listing documents in {docs_path}: {files}")
+    logger.info("Listing documents in %s: %s", docs_path, files)
     return {"documents": files}
 
 @app.delete("/documents/{filename}")
@@ -917,7 +1052,7 @@ async def get_configuration():
             logger.info("Successfully fetched live data from Neo4j for config endpoint")
             
     except Exception as e:
-        logger.warning(f"Neo4j unavailable for config endpoint, returning static config: {str(e)}")
+        logger.warning("Neo4j unavailable for config endpoint, returning static config: %s", e)
         # Continue with empty relationship_distribution and audit_results
         
     try:
@@ -930,7 +1065,7 @@ async def get_configuration():
                     "purpose": "Knowledge extraction from PDFs and narrative synthesis",
                     "provider": "Google AI",
                     "hyperparameters": {
-                        "temperature": 0.3,
+                        "temperature": 0,
                         "top_p": 1.0,
                         "top_k": 40,
                         "max_output_tokens": 8192,
@@ -944,7 +1079,7 @@ async def get_configuration():
                         "chunking": "Automatic via SimpleKGPipeline"
                     },
                     "synthesis_config": {
-                        "temperature": 0.3,
+                        "temperature": 0,
                         "persona": Config.SYNTHESIS_PERSONA,
                         "response_structure": "Analytical Briefing",
                         "max_context_triplets": 20,
@@ -1154,13 +1289,13 @@ async def get_configuration():
             },
             "synthesis": {
                 "persona": Config.SYNTHESIS_PERSONA,
-                "temperature": 0.3,
+                "temperature": 0,
                 "response_structure": "Analytical Briefing",
                 "strategy": "Discovery-Driven Intelligence",
                 "features": ["Direct answers", "Community leads", "Contextual analysis", "Evidence-based reasoning"]
             },
             "neo4j": {
-                "uri": Config.NEO4J_URI.replace("neo4j+s://", "neo4j+s://***@").split("@")[-1] if Config.NEO4J_URI else "Not configured",
+                "uri": _redact_neo4j_uri(Config.NEO4J_URI),
                 "database": Config.NEO4J_DATABASE,
                 "driver_status": neo4j_status,
                 "type": "Neo4j Aura (Cloud)"
@@ -1221,10 +1356,10 @@ async def get_configuration():
         return config_data
         
     except Exception as e:
-        logger.error(f"Failed to fetch configuration: {str(e)}")
+        logger.error("Failed to fetch configuration: %s", e)
         raise HTTPException(status_code=500, detail="Failed to load configuration.")
 
 if __name__ == "__main__":
     import uvicorn
-    logger.info(f"Starting server on port {Config.PORT} (Debug={Config.DEBUG})...")
+    logger.info("Starting server on port %s (Debug=%s)...", Config.PORT, Config.DEBUG)
     uvicorn.run(app, host="0.0.0.0", port=Config.PORT)

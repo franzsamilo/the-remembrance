@@ -10,9 +10,13 @@ export interface Tab {
   icon?: React.ReactNode;
 }
 
+type TabContent = React.ReactNode | (() => React.ReactNode);
+
 interface TabShellProps {
   tabs: Tab[];
-  children: Record<string, React.ReactNode>;
+  // Pass `() => <Tab/>` for lazy tabs — only the active one's builder runs,
+  // so hidden tabs never construct their JSX. Plain ReactNode still works.
+  children: Record<string, TabContent>;
   defaultTab?: string;
 }
 
@@ -20,6 +24,11 @@ export default function TabShell({ tabs, children, defaultTab }: TabShellProps) 
   const searchParams = useSearchParams();
   const router = useRouter();
   const activeTab = searchParams.get("tab") || defaultTab || tabs[0]?.id;
+
+  const activeContent = React.useMemo(() => {
+    const entry = children[activeTab];
+    return typeof entry === "function" ? entry() : entry;
+  }, [children, activeTab]);
 
   const setTab = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -62,7 +71,7 @@ export default function TabShell({ tabs, children, defaultTab }: TabShellProps) 
       </div>
 
       <div role="tabpanel">
-        {children[activeTab]}
+        {activeContent}
       </div>
     </div>
   );

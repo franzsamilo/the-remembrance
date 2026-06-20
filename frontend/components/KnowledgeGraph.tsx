@@ -229,6 +229,9 @@ export default function KnowledgeGraph({
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
   const [dragNode, setDragNode] = useState<string | null>(null);
   const [dragPositions, setDragPositions] = useState<Record<string, { x: number; y: number }>>({});
+  // dragNode mirror — read inside the long-lived window mousemove listener so
+  // the effect attaches once for the component's lifetime instead of every drag.
+  const dragNodeRef = useRef<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -488,30 +491,9 @@ export default function KnowledgeGraph({
   const handleMouseDown = (nodeId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    dragNodeRef.current = nodeId;
     setDragNode(nodeId);
   };
-
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!dragNode || !containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      setDragPositions((prev) => ({ ...prev, [dragNode]: { x, y } }));
-    },
-    [dragNode]
-  );
-
-  const handleMouseUp = useCallback(() => {
-    setDragNode(null);
-    setDragPositions({});
-  }, []);
-
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setZoom((z) => Math.max(0.4, Math.min(3, z + delta)));
-  }, []);
 
   const handlePanStart = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget || (e.target as SVGElement).tagName === "svg") {
@@ -535,16 +517,46 @@ export default function KnowledgeGraph({
     };
   }, [isPanning]);
 
+  // One-shot global drag listeners. They no-op when no node is being dragged
+  // (dragNodeRef === null), so they're free to live for the component's whole
+  // lifetime instead of being re-attached on every mousemove-driven render.
   useEffect(() => {
-    if (dragNode) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-      return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("mouseup", handleMouseUp);
-      };
-    }
-  }, [dragNode, handleMouseMove, handleMouseUp]);
+    const onMove = (e: MouseEvent) => {
+      const nodeId = dragNodeRef.current;
+      if (!nodeId || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      setDragPositions((prev) => ({ ...prev, [nodeId]: { x, y } }));
+    };
+    const onUp = () => {
+      if (!dragNodeRef.current) return;
+      dragNodeRef.current = null;
+      setDragNode(null);
+      setDragPositions({});
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  // Wheel handler attached imperatively so we can opt out of the passive
+  // listener React's onWheel prop installs by default — otherwise preventDefault
+  // is silently ignored and the browser logs a warning while the page scrolls.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom((z) => Math.max(0.4, Math.min(3, z + delta)));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
 
   // Node colors and sizes (larger when large=true)
   const scale = large ? 1.2 : 1;
@@ -593,7 +605,6 @@ export default function KnowledgeGraph({
         className="relative w-full bg-[#FAFAF8]/60 border border-[#E5E5E3]/50 rounded-lg overflow-hidden"
         style={{ minHeight: large ? 420 : 350, height: "100%", cursor: isPanning ? "grabbing" : dragNode ? "grabbing" : "default" }}
         onClick={closeCard}
-        onWheel={handleWheel}
       >
         {/* SVG paper texture background */}
         <div className="absolute inset-0 paper-texture pointer-events-none opacity-50" />

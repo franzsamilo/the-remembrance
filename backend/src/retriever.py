@@ -193,8 +193,12 @@ class GraphRetriever:
                 return "\n".join(context_parts), triplets, leads
 
         except Exception as e:
-            logger.error("Retrieval Error: %s", e)
-            return "Internal Retrieval Error.", [], []
+            # Re-raise so the API layer returns a 5xx instead of an empty
+            # triplet list — which the generator would otherwise mistake for
+            # a Grounding Error (correct refusal). Conflating the two breaks
+            # the central architectural demo. The endpoint logs + sanitizes.
+            logger.exception("Retrieval failed: %s", e)
+            raise
 
 if __name__ == "__main__":
     retriever = GraphRetriever()

@@ -32,6 +32,8 @@ import StatCard from "@/components/StatCard";
 import AuditItem from "@/components/AuditItem";
 import { SkeletonConfigGrid } from "@/components/Skeleton";
 import { formatAucRoc, formatScore } from "@/lib/utils";
+import type { StatsData } from "@/lib/types";
+import SelectionRationale from "@/components/SelectionRationale";
 
 type ConfigData = {
   models: any;
@@ -49,23 +51,9 @@ type ConfigData = {
   environment: any;
 };
 
-type StatsData = {
-  entities?: number;
-  relationships?: number;
-  embedding_progress?: number;
-  feature_complete?: number;
-  graph_state?: string;
-  graph_readiness?: { source_documents?: number; provenance_covered_nodes?: number; latest_ingestion_status?: string; latest_documents_processed?: number; latest_documents_failed?: number };
-  audit_readiness?: { state?: string; audited_relationships?: number; total_relationships?: number; latest_audit_mode?: string; latest_auc_roc?: number };
-  status?: string;
-  current_task?: string;
-  message?: string;
-  research_kpis?: { gnn_auc_roc?: number; gnn_mrr?: number; grounding_score?: number; faithfulness_score?: number };
-} | null;
-
 export default function BackendConfigPage() {
   const [config, setConfig] = useState<ConfigData | null>(null);
-  const [stats, setStats] = useState<StatsData>(null);
+  const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
   const [auditing, setAuditing] = useState(false);
@@ -217,6 +205,10 @@ export default function BackendConfigPage() {
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
+            id={`panel-${activeTab}`}
+            role="tabpanel"
+            aria-labelledby={`tab-${activeTab}`}
+            tabIndex={0}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
@@ -234,7 +226,7 @@ export default function BackendConfigPage() {
 }
 
 // Tab 0: Overview — system health at a glance
-function OverviewTab({ stats, config, onRefresh, onAudit, auditing }: { stats: StatsData; config: ConfigData; onRefresh: () => void; onAudit: () => void; auditing: boolean }) {
+function OverviewTab({ stats, config, onRefresh, onAudit, auditing }: { stats: StatsData | null; config: ConfigData; onRefresh: () => void; onAudit: () => void; auditing: boolean }) {
   const graphState = stats?.graph_state;
   const graphReadiness = stats?.graph_readiness;
   const auditReadiness = stats?.audit_readiness;
@@ -396,7 +388,22 @@ function PipelineModelsTab({ pipeline, models }: { pipeline: any; models: any })
           ))}
         </div>
 
-        {/* Mermaid in details */}
+        {/* Paper Figure 5.0 — the canonical architecture diagram, mirrored
+            from docs/paper/figures/fig5_0_architecture.png so the operator
+            view shows the same artifact the panel reads in the thesis. */}
+        <figure className="mt-4 rounded-sm border border-[#E5E5E3] bg-white p-4">
+          <img
+            src="/figures/architecture.png"
+            alt="Validate-then-Generate architecture: PDF → Feature → Training → Inference, with the CompGCN integrity layer gating synthesis at τ ≥ 0.95"
+            className="w-full h-auto"
+            loading="lazy"
+          />
+          <figcaption className="mt-2 text-[10px] font-mono uppercase tracking-[0.15em] text-[#737373]">
+            Paper v6.4 · Figure 5.0 · Validate-then-Generate architecture
+          </figcaption>
+        </figure>
+
+        {/* Same diagram as Mermaid for copy/paste into notes or papers */}
         <details className="mt-4">
           <summary className="cursor-pointer text-sm font-medium text-[#737373] hover:text-[#C5A028]">Copy architecture diagram (Mermaid)</summary>
           <pre className="mt-2 bg-[#1A1A1A] text-[#F5F5F3] p-4 rounded-sm text-xs overflow-x-auto font-mono">
@@ -563,6 +570,10 @@ function GraphAuditTab({ connections, pipeline, neo4j, audit, evaluation }: { co
           </div>
         </div>
       )}
+
+      {/* Selection rationale — flip to this when the panel asks
+          "didn't you choose your own files?" */}
+      <SelectionRationale />
 
       {/* Neo4j + Schema */}
       <div className="glass rounded-sm p-6">

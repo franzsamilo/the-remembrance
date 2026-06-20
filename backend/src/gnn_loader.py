@@ -138,7 +138,7 @@ class GNNLoader:
                 return data, rel_types, node_id_map, label_to_id
 
         except Exception as e:
-            logger.error(f"Error loading GNN data: {str(e)}")
+            logger.error("Error loading GNN data: %s", e)
             return None
 
 if __name__ == "__main__":

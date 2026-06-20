@@ -31,6 +31,11 @@ import { useRouter } from "next/navigation";
 import ConfirmModal from "@/components/ConfirmModal";
 import PipelineFlow from "@/components/PipelineFlow";
 import AuditFindingsCard from "@/components/AuditFindingsCard";
+import KPIDefenseStatus from "@/components/KPIDefenseStatus";
+import CorpusContext from "@/components/CorpusContext";
+import WelcomeCard from "@/components/WelcomeCard";
+import TabIntro from "@/components/TabIntro";
+import InfoTooltip from "@/components/InfoTooltip";
 import StatCard from "@/components/StatCard";
 import TabShell, { Tab } from "@/components/TabShell";
 import AblationComparison from "@/components/AblationComparison";
@@ -43,8 +48,8 @@ import FlaggedEdges from "@/components/FlaggedEdges";
 import { SkeletonDocumentList, SkeletonSidebarCard } from "@/components/Skeleton";
 import { API_BASE_URL } from "@/lib/api";
 import { formatAucRoc, formatScore } from "@/lib/utils";
-import { STORAGE_KEYS, POLLING, STREAMING } from "@/lib/constants";
-import type { Triplet, Lead, ChatMessage } from "@/lib/types";
+import { STORAGE_KEYS, POLLING, STREAMING, DEMO_QUERIES } from "@/lib/constants";
+import type { Triplet, Lead, ChatMessage, StatsData, AuditFindings } from "@/lib/types";
 
 const TABS: Tab[] = [
   { id: "overview", label: "Overview", icon: <LayoutDashboard size={16} /> },
@@ -55,13 +60,11 @@ const TABS: Tab[] = [
 
 export default function FrameworkDashboard() {
   const router = useRouter();
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<StatsData | null>(null);
   const [documents, setDocuments] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [ingesting, setIngesting] = useState(false);
-  const [auditing, setAuditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [auditFindings, setAuditFindings] = useState<any>(null);
+  const [auditFindings, setAuditFindings] = useState<AuditFindings | null>(null);
   const [selectedAuditDoc, setSelectedAuditDoc] = useState<string | null>(null);
 
   // Chat State
@@ -157,6 +160,9 @@ export default function FrameworkDashboard() {
     }
 
     const tick = () => {
+      // Skip polls while the tab is hidden — otherwise a laptop suspended
+      // mid-demo stacks pending requests and storms the backend on resume.
+      if (typeof document !== "undefined" && document.hidden) return;
       fetchStats();
       if (!showActiveTaskBanner) {
         idleTicksRef.current++;
@@ -176,10 +182,12 @@ export default function FrameworkDashboard() {
     return () => clearInterval(interval);
   }, [showActiveTaskBanner, fetchStats, fetchAuditFindings]);
 
-  useEffect(() => {
-    setIngesting(isIngestionActive);
-    setAuditing(isAuditActive);
-  }, [isIngestionActive, isAuditActive]);
+  // Derive the two flags directly. (Previously these were useState+useEffect
+  // mirrors of isIngestionActive/isAuditActive, which caused an extra render
+  // and a bug where catch-blocks would set them to false but the next poll
+  // would flip them back.)
+  const ingesting = isIngestionActive;
+  const auditing = isAuditActive;
 
   const triggerIngestion = async () => {
     try {
@@ -192,7 +200,6 @@ export default function FrameworkDashboard() {
       setError(
         "Ingestion pipeline failed to start. Ensure documents are uploaded and the backend is running."
       );
-      setIngesting(false);
     }
   };
 
@@ -206,7 +213,6 @@ export default function FrameworkDashboard() {
       setError(
         "GNN audit failed to start. Run the ingestion pipeline first to populate the knowledge graph."
       );
-      setAuditing(false);
     }
   };
 
@@ -235,11 +241,15 @@ export default function FrameworkDashboard() {
       }
     } finally {
       setLoading(false);
+      // Clear the file input so selecting the SAME filename twice re-fires
+      // onChange (otherwise the browser short-circuits the second select).
+      e.target.value = "";
     }
   };
 
   const handleChat = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (chatLoading) return;  // Guard against double-submit racing two streams
     if (!query.trim()) return;
 
     const userMsg = query;
@@ -411,14 +421,20 @@ export default function FrameworkDashboard() {
         setConfirmInProgress(true);
         try {
           setLoading(true);
-          await axios.post(`${API_BASE_URL}/reset`);
+          // NEXT_PUBLIC_ADMIN_API_KEY must match the backend's ADMIN_API_KEY.
+          // The header is always sent when configured; backend default-denies
+          // /reset if ADMIN_API_KEY is unset on the server.
+          const adminKey = process.env.NEXT_PUBLIC_ADMIN_API_KEY;
+          const headers: Record<string, string> = {};
+          if (adminKey) headers["X-Admin-Key"] = adminKey;
+          await axios.post(`${API_BASE_URL}/reset`, null, { headers });
           await fetchStats();
           await fetchDocs();
           await fetchAuditFindings();
         } catch (err) {
           console.error("Reset failed:", err);
           setError(
-            "Database reset failed. Ensure the ADMIN_API_KEY is configured and the backend is running."
+            "Database reset failed. Ensure NEXT_PUBLIC_ADMIN_API_KEY matches the backend's ADMIN_API_KEY and the backend is running."
           );
         } finally {
           setLoading(false);
@@ -453,10 +469,39 @@ export default function FrameworkDashboard() {
     });
   };
 
-  // ===== Tab content builders =====
+  // Pre-fill the chat with a demo query and jump to the Discover tab so a
+  // first-time visitor can start from the Overview and land on a ready-to-send
+  // question without hunting through the UI.
+  const handleDemoQuery = useCallback(
+    (q: string) => {
+      setQuery(q);
+      router.replace("?tab=discover", { scroll: false });
+    },
+    [router]
+  );
 
-  const overviewTab = (
+  // ===== Tab content builders =====
+  // Each tab is a thunk so TabShell only constructs the active tab's JSX —
+  // the inactive ones (often complex trees) skip their per-render allocation.
+
+  const overviewTab = () => (
     <div className="max-w-7xl mx-auto space-y-6 px-2">
+      {/* Welcome / orientation — first thing an outside visitor sees */}
+      <WelcomeCard onTryQuery={handleDemoQuery} />
+
+      {/* Tab intro for context */}
+      <TabIntro
+        eyebrow="Overview"
+        description="System status at a glance — what's loaded, how the integrity model is performing, and which document evidence has been flagged for review."
+      />
+
+      {/* Paper KPI Defense Status — defense-day headline */}
+      <KPIDefenseStatus />
+
+      {/* Corpus context strip — preempts "isn't your corpus too small/sparse?"
+          by putting the edges/node comparison numerically on screen. */}
+      <CorpusContext stats={stats} />
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -464,6 +509,7 @@ export default function FrameworkDashboard() {
           value={(stats?.nodes ?? 0).toLocaleString()}
           icon={<Database size={20} className="text-[#C5A028]" />}
           subtext="Knowledge graph nodes"
+          explain="People, places, organizations, and concepts the system extracted from your documents. Each one becomes a node it can reason over."
           delay={0}
         />
         <StatCard
@@ -471,6 +517,7 @@ export default function FrameworkDashboard() {
           value={(stats?.relationships ?? 0).toLocaleString()}
           icon={<BarChart3 size={20} className="text-[#C5A028]" />}
           subtext="Audited edges"
+          explain="Connections between entities (e.g., 'Case A cites Article III'). Every one of these has a reliability score from the integrity model."
           delay={0.05}
         />
         <StatCard
@@ -482,6 +529,7 @@ export default function FrameworkDashboard() {
           }
           icon={<ShieldCheck size={20} className="text-[#2D6A4F]" />}
           subtext="LLM-as-judge"
+          explain="Share of claims in generated answers that trace back to a verified fact. Closer to 100% means the system invents almost nothing."
           delay={0.1}
         />
         <StatCard
@@ -493,6 +541,7 @@ export default function FrameworkDashboard() {
           }
           icon={<Activity size={20} className="text-[#2D6A4F]" />}
           subtext="GNN audit quality"
+          explain="How well the integrity model can tell real facts from fakes. 1.0 is perfect, 0.5 is random; higher means tighter quality control."
           delay={0.15}
         />
       </div>
@@ -622,8 +671,12 @@ export default function FrameworkDashboard() {
     </div>
   );
 
-  const pipelineTab = (
+  const pipelineTab = () => (
     <div className="max-w-7xl mx-auto space-y-6 px-2">
+      <TabIntro
+        eyebrow="Pipeline"
+        description="How a document becomes an answer. Click any stage to see the model used, what it was trained on, and the parameters behind it."
+      />
       <TimingSummary timings={stats?.stage_timings ?? null} />
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -635,21 +688,75 @@ export default function FrameworkDashboard() {
     </div>
   );
 
-  const discoverTab = (
+  const discoverTab = () => (
     <div className="max-w-5xl mx-auto px-2 flex flex-col" style={{ minHeight: "70vh" }}>
+      <TabIntro
+        eyebrow="Discover · Ask a question"
+        description="Type a question about your documents. The system only answers from what it can verify in the evidence — if it can't, it tells you instead of guessing."
+      />
       <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-thin">
         {messages.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-60 py-20">
-            <div className="p-6 bg-[#F5F5F3] rounded-full border border-[#E5E5E3]">
-              <KnowledgeGraphIcon size={48} className="text-[#1A1A1A]" />
+          <div className="h-full flex flex-col items-center justify-center text-center py-12 space-y-8">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="space-y-4 max-w-xl"
+            >
+              <div className="inline-flex p-4 bg-[#FAFAF8] rounded-full border border-[#E5E5E3] mb-2">
+                <KnowledgeGraphIcon size={40} className="text-[#7A1A1A]" />
+              </div>
+              <div>
+                <p
+                  className="text-2xl font-semibold text-[#1A1A1A]"
+                  style={{ fontFamily: "EB Garamond, serif" }}
+                >
+                  Ask your first question
+                </p>
+                <p className="text-sm text-[#525252] mt-2 leading-relaxed">
+                  Every answer is built only from facts the system can verify in
+                  your documents. If the evidence isn&apos;t there, you&apos;ll
+                  see a refusal instead of a guess. Try a sample to see how it
+                  works:
+                </p>
+              </div>
+            </motion.div>
+
+            <div className="w-full max-w-2xl grid sm:grid-cols-3 gap-3">
+              {DEMO_QUERIES.map((demo, idx) => (
+                <motion.button
+                  key={demo.label}
+                  type="button"
+                  onClick={() => setQuery(demo.query)}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.15 + idx * 0.07 }}
+                  className="group text-left p-4 rounded-sm bg-[#FFFFFF] border border-[#E5E5E3] hover:border-[#C5A028] hover:shadow-[0_2px_10px_rgba(197,160,40,0.10)] transition-all cut-paper"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[9px] font-mono uppercase tracking-[0.18em] text-[#7A1A1A]/80">
+                      {demo.label}
+                    </span>
+                    <span className="text-[9px] font-mono text-[#C5A028] opacity-0 group-hover:opacity-100 transition-opacity">
+                      ↵
+                    </span>
+                  </div>
+                  <p
+                    className="text-sm text-[#1A1A1A] leading-snug mb-3"
+                    style={{ fontFamily: "EB Garamond, serif" }}
+                  >
+                    “{demo.query}”
+                  </p>
+                  <p className="text-[10px] font-mono uppercase tracking-[0.12em] text-[#737373] leading-tight">
+                    {demo.showcases}
+                  </p>
+                </motion.button>
+              ))}
             </div>
-            <div>
-              <p className="text-lg font-medium text-[#1A1A1A]">Ready to Explore</p>
-              <p className="text-base text-[#525252] mt-2 max-w-md mx-auto">
-                Ask a question about your case. Answers are grounded in your
-                ingested documents — no evidence, no answer.
-              </p>
-            </div>
+
+            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#737373] pt-2">
+              Click a card to load the query · then press Send
+            </p>
           </div>
         )}
 
@@ -728,7 +835,12 @@ export default function FrameworkDashboard() {
                   )}
 
                   {leads.length > 0 && (
-                    <div className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: 0.1 }}
+                      className="flex flex-wrap gap-2"
+                    >
                       <div className="w-full text-[10px] font-mono uppercase tracking-widest text-[#737373] mb-1 flex items-center gap-2">
                         <KnowledgeGraphIcon size={10} />
                         Active Discovery Leads
@@ -741,11 +853,15 @@ export default function FrameworkDashboard() {
                           {lead.name}
                         </div>
                       ))}
-                    </div>
+                    </motion.div>
                   )}
 
                   {triplets.length > 0 && !msg.explain && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+                    <motion.div
+                      initial={{ opacity: 0, y: 16 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: 0.2 }}
+                    >
                       <div className="text-[10px] font-mono uppercase tracking-widest text-[#737373] mb-3 flex items-center gap-2">
                         <Database size={10} />
                         Verified Facts
@@ -776,7 +892,7 @@ export default function FrameworkDashboard() {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </motion.div>
                   )}
                 </div>
               )}
@@ -813,6 +929,10 @@ export default function FrameworkDashboard() {
                   className="accent-[#C5A028]"
                 />
                 Explain Connections
+                <InfoTooltip label="Explain Connections">
+                  When on, every fact in the answer comes with a short note
+                  about why the system trusted it. Slower, but easier to verify.
+                </InfoTooltip>
               </label>
               <label className="flex items-center gap-2 font-mono uppercase tracking-widest cursor-pointer px-3 py-1.5 rounded-full border border-amber-500/40 bg-amber-500/10">
                 <input
@@ -821,17 +941,22 @@ export default function FrameworkDashboard() {
                   onChange={(e) => setPromptOnlyMode(e.target.checked)}
                   className="accent-amber-600"
                 />
-                Prompt Only (Ablation)
+                Compare without graph
+                <InfoTooltip label="Compare without graph">
+                  Asks the same question using only document text — no
+                  knowledge graph, no integrity check. Useful for seeing what
+                  the integrity layer is actually adding.
+                </InfoTooltip>
               </label>
               {!promptOnlyMode && (
                 <span className="font-mono uppercase tracking-widest">
-                  Evidence Board + ordered narrative
+                  Full grounded pipeline
                 </span>
               )}
             </div>
             <span className="text-[10px] italic">
               {promptOnlyMode
-                ? "Chunk RAG only — no graph, no GNN. Compare grounding."
+                ? "Plain text search only — for comparison with the grounded pipeline."
                 : "Adds extra analysis time for richer explanations."}
             </span>
           </div>
@@ -840,8 +965,9 @@ export default function FrameworkDashboard() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ask a deep question..."
-              className="w-full bg-[#FAFAF8] hover:bg-[#F5F5F3] border border-[#E5E5E3] rounded-2xl py-4 pl-6 pr-16 text-base text-[#1A1A1A] placeholder:text-[#737373] focus:outline-none focus:ring-2 focus:ring-[#C5A028]/50 focus:border-[#C5A028] transition-all shadow-inner"
+              disabled={chatLoading}
+              placeholder={chatLoading ? "Generating analytical briefing..." : "Ask a deep question..."}
+              className="w-full bg-[#FAFAF8] hover:bg-[#F5F5F3] border border-[#E5E5E3] rounded-2xl py-4 pl-6 pr-16 text-base text-[#1A1A1A] placeholder:text-[#737373] focus:outline-none focus:ring-2 focus:ring-[#C5A028]/50 focus:border-[#C5A028] transition-all shadow-inner disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <button
               type="submit"
@@ -874,8 +1000,12 @@ export default function FrameworkDashboard() {
       }
     : null;
 
-  const auditTab = (
+  const auditTab = () => (
     <div className="max-w-7xl mx-auto space-y-6 px-2">
+      <TabIntro
+        eyebrow="Audit · Evidence quality"
+        description="A document-by-document report on which facts the integrity model scored as weak. Useful for spotting bad sources or extraction errors before they leak into answers."
+      />
       {auditRunData ? (
         <AuditOverview auditRun={auditRunData} />
       ) : (
@@ -943,12 +1073,13 @@ export default function FrameworkDashboard() {
         <div className="flex items-center gap-2">
           <button
             onClick={handleReset}
-            className="p-2 hover:bg-[#7A1A1A]/10 text-[#7A1A1A]/60 hover:text-[#7A1A1A] rounded-sm transition-all border border-transparent hover:border-[#7A1A1A]/30"
-            title="Wipe Graph"
-            aria-label="Reset database and wipe graph"
+            className="p-2 ml-2 bg-[#7A1A1A]/5 hover:bg-[#7A1A1A]/20 text-[#7A1A1A]/70 hover:text-[#7A1A1A] rounded-sm transition-all border border-[#7A1A1A]/25 hover:border-[#7A1A1A]/60 hover:shadow-[0_0_0_3px_rgba(122,26,26,0.08)]"
+            title="Wipe Graph (destructive)"
+            aria-label="Reset database and wipe graph (destructive)"
           >
             <Trash2 size={18} />
           </button>
+          <span className="w-px h-5 bg-[#E5E5E3]" aria-hidden="true" />
           <button
             onClick={fetchStats}
             className="p-2 hover:bg-[#F5F5F3] rounded-sm text-[#737373] hover:text-[#1A1A1A] transition-colors border border-transparent hover:border-[#E5E5E3]"

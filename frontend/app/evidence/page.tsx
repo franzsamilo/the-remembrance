@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { X, FileText, Scale, ArrowRightCircle, ChevronDown, ChevronUp, Network } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import axios from "axios";
 import DetectiveBoard from "@/components/DetectiveBoard";
 import KnowledgeGraph from "@/components/KnowledgeGraph";
 import { SkeletonDetectiveBoard } from "@/components/Skeleton";
@@ -13,6 +16,9 @@ import RejectedEvidence from "@/components/RejectedEvidence";
 import GroundingError from "@/components/GroundingError";
 import { Triplet, Lead } from "@/lib/types";
 import { STORAGE_KEYS } from "@/lib/constants";
+import { API_BASE_URL } from "@/lib/api";
+
+const DEFAULT_GROUNDING_THRESHOLD = 0.95;
 
 type EvidenceMessage = {
   role: string;
@@ -30,6 +36,9 @@ export default function EvidencePage() {
   const router = useRouter();
   const [message, setMessage] = useState<EvidenceMessage | null>(null);
   const [graphViewExpanded, setGraphViewExpanded] = useState(false);
+  const [groundingThreshold, setGroundingThreshold] = useState<number>(
+    DEFAULT_GROUNDING_THRESHOLD
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -44,6 +53,25 @@ export default function EvidencePage() {
       // Corrupted data — stay on page with fallback
     }
   }, [router]);
+
+  useEffect(() => {
+    let cancelled = false;
+    axios
+      .get(`${API_BASE_URL}/stats`)
+      .then((res) => {
+        if (cancelled) return;
+        const tau = res.data?.inference_config?.grounding_threshold;
+        if (typeof tau === "number" && tau > 0 && tau <= 1) {
+          setGroundingThreshold(tau);
+        }
+      })
+      .catch(() => {
+        // Backend unreachable — keep the default τ used everywhere else
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // All hooks must run unconditionally (before any early return)
   const triplets = message?.triplets ?? [];
@@ -200,7 +228,7 @@ export default function EvidencePage() {
             />
             <RejectedEvidence
               triplets={message.filtered_triplets ?? []}
-              threshold={0.95}
+              threshold={groundingThreshold}
             />
           </div>
         ) : (
@@ -271,13 +299,13 @@ export default function EvidencePage() {
             <FilteringSummary
               validatedCount={triplets.length}
               filteredCount={message?.filtered_triplets?.length ?? 0}
-              threshold={0.95}
+              threshold={groundingThreshold}
             />
           )}
 
           <RejectedEvidence
             triplets={message?.filtered_triplets ?? []}
-            threshold={0.95}
+            threshold={groundingThreshold}
           />
         </div>
 
@@ -300,9 +328,11 @@ export default function EvidencePage() {
                     className="flex items-start gap-2 p-3 rounded-lg border border-[#2D6A4F]/50 bg-[#2D6A4F]/5 hover:border-[#2D6A4F] transition-colors"
                   >
                     <span className="text-[#2D6A4F] font-bold shrink-0 mt-0.5">{idx + 1}.</span>
-                    <p className="text-sm font-medium text-[#1A1A1A] leading-relaxed">
-                      {action}
-                    </p>
+                    <div className="prose prose-sm max-w-none text-sm font-medium text-[#1A1A1A] leading-relaxed prose-p:my-0 prose-strong:text-[#1A1A1A] prose-strong:font-semibold">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {action}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                 ))}
               </div>

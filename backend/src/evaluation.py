@@ -149,9 +149,11 @@ async def run_grounding_evaluation(
     Returns and persists results to evaluation_results.json.
 
     Args:
-        mode: 'full_stack' | 'prompt_only' (graph-only mode not yet implemented).
-              'full_stack' uses GNN-validated retrieval + synthesis (default).
-              'prompt_only' bypasses the graph entirely (ablation baseline).
+        mode: 'full_stack' | 'graph_no_gnn' | 'prompt_only'.
+              'full_stack'   — GNN-validated retrieval + synthesis (default).
+              'graph_no_gnn' — graph retrieval WITHOUT plausibility filter.
+                               Isolates the GNN integrity layer's contribution.
+              'prompt_only'  — chunk RAG, no graph (weakest baseline).
         persist_to_ablation: Write results into evaluation_results.json's
               top-level + ablation[mode] section. Set False when called from a
               threshold sweep so transient thresholds don't clobber the primary
@@ -169,33 +171,46 @@ async def run_grounding_evaluation(
     )
     generator = DiscoveryGenerator()
 
-    grounding_scores = []
-    faithfulness_scores = []
-    per_query_results = []
+    # Bound concurrent Gemini calls so we don't trip per-minute rate limits.
+    sem = asyncio.Semaphore(Config.EVALUATION_MAX_CONCURRENCY)
 
-    for q in queries:
-        try:
-            if mode == "prompt_only":
-                result = await generator.generate_answer_prompt_only(q)
-            else:
-                result = await generator.generate_answer(q, explain=True, grounding_threshold=grounding_threshold)
-            narrative = result.get("narrative_text", "")
-            triplets = result.get("triplets", [])
-            if not narrative:
-                continue
-            g = await _score_grounding(narrative, triplets, llm)
-            f = await _score_faithfulness(narrative, triplets, llm)
-            per_query_results.append({
-                "query": q,
-                "grounding_score": g,
-                "faithfulness_score": f,
-            })
-            if g is not None:
-                grounding_scores.append(g)
-            if f is not None:
-                faithfulness_scores.append(f)
-        except Exception as e:
-            logger.warning("Evaluation failed for query %s: %s", q[:50], e)
+    async def _evaluate_one(q: str) -> dict | None:
+        async with sem:
+            try:
+                if mode == "prompt_only":
+                    result = await generator.generate_answer_prompt_only(q)
+                elif mode == "graph_no_gnn":
+                    result = await generator.generate_answer_graph_no_gnn(q, explain=True)
+                else:
+                    result = await generator.generate_answer(
+                        q, explain=True, grounding_threshold=grounding_threshold
+                    )
+                narrative = result.get("narrative_text", "")
+                triplets = result.get("triplets", [])
+                if not narrative:
+                    return None
+                # Grounding + faithfulness judges are independent — fan them out.
+                g, f = await asyncio.gather(
+                    _score_grounding(narrative, triplets, llm),
+                    _score_faithfulness(narrative, triplets, llm),
+                )
+                return {
+                    "query": q,
+                    "grounding_score": g,
+                    "faithfulness_score": f,
+                }
+            except Exception as e:
+                logger.warning("Evaluation failed for query %s: %s", q[:50], e)
+                return None
+
+    per_query_raw = await asyncio.gather(*[_evaluate_one(q) for q in queries])
+    per_query_results = [r for r in per_query_raw if r is not None]
+    grounding_scores = [
+        r["grounding_score"] for r in per_query_results if r["grounding_score"] is not None
+    ]
+    faithfulness_scores = [
+        r["faithfulness_score"] for r in per_query_results if r["faithfulness_score"] is not None
+    ]
 
     grounding_score = sum(grounding_scores) / len(grounding_scores) if grounding_scores else None
     faithfulness_score = sum(faithfulness_scores) / len(faithfulness_scores) if faithfulness_scores else None
@@ -229,12 +244,15 @@ async def run_grounding_evaluation(
             "sample_count": output["sample_count"],
             "per_query": per_query_results,
         }
-        # Keep top-level scores as the latest run
-        existing["grounding_score"] = grounding_score
-        existing["faithfulness_score"] = faithfulness_score
-        existing["completed_at"] = _utc_now_iso()
-        existing["sample_count"] = output["sample_count"]
-        existing["per_query"] = per_query_results
+        # Top-level reflects the PRIMARY pipeline (full_stack). Ablation modes
+        # (prompt_only) are recorded only under ablation[mode] so the dashboard's
+        # headline KPI never shows the ablation baseline.
+        if mode == "full_stack":
+            existing["grounding_score"] = grounding_score
+            existing["faithfulness_score"] = faithfulness_score
+            existing["completed_at"] = _utc_now_iso()
+            existing["sample_count"] = output["sample_count"]
+            existing["per_query"] = per_query_results
         with open(path, "w") as f:
             json.dump(existing, f, indent=2)
         logger.info("Evaluation results written to %s (mode=%s)", path, mode)

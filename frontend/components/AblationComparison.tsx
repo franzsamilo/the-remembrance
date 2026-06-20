@@ -10,9 +10,21 @@ interface AblationComparisonProps {
 }
 
 const MODES = [
-  { key: "prompt_only" as const, label: "Prompt Only", description: "Chunk RAG \u2014 no graph, no GNN" },
-  { key: "graph" as const, label: "Graph (No GNN)", description: "Hybrid retrieval \u2014 all edges, no audit" },
-  { key: "full_stack" as const, label: "Full Stack", description: "Hybrid retrieval + GNN filter (\u03C4 \u2265 0.95)" },
+  {
+    key: "prompt_only" as const,
+    label: "Plain text search",
+    description: "No knowledge graph, no integrity check \u2014 just raw document excerpts. Baseline for comparison.",
+  },
+  {
+    key: "graph_no_gnn" as const,
+    label: "Graph (no quality filter)",
+    description: "Uses the knowledge graph but skips the integrity model. Isolates what the filter contributes.",
+  },
+  {
+    key: "full_stack" as const,
+    label: "Grounded (full system)",
+    description: "Knowledge graph plus the integrity model \u2014 only facts above the reliability threshold reach the answer.",
+  },
 ];
 
 export default function AblationComparison({ results }: AblationComparisonProps) {

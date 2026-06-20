@@ -196,7 +196,11 @@ export default function DetectiveBoard({
           <p className="text-[10px] font-mono uppercase tracking-widest text-[#737373] mb-1">
             Conclusion
           </p>
-          <p className="text-sm text-[#1A1A1A]">{answerSummary}</p>
+          <div className="prose prose-sm max-w-none text-sm text-[#1A1A1A] prose-p:my-0 prose-p:text-sm prose-p:text-[#1A1A1A] prose-strong:text-[#1A1A1A] prose-strong:font-semibold">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {answerSummary}
+            </ReactMarkdown>
+          </div>
         </div>
       )}
     </div>
