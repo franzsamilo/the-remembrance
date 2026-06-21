@@ -66,3 +66,17 @@ framework.log
 # Training checkpoints (reproducible from code)
 backend/run_logs/*.pt
 backend/run_logs/*_meta.json
+
+# Local-only TLS workaround for Avast HTTPS scanning (per-machine cert bundle)
+backend/.grpc-ssl-bundle.pem
+
+# Graph snapshots — JSONL exports are large (~140 MB); restore via run_logs/graph_restore.py
+backend/run_logs/*.jsonl
+
+# Run-log stderr and scratch outputs (verbose; not source)
+backend/run_logs/*.err
+backend/run_logs/*.out
+backend/run_logs/wipe_result.txt
+backend/run_logs/*.jun20.json
+backend/*.out
+backend/*.err

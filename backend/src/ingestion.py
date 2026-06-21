@@ -419,6 +419,12 @@ async def process_documents():
             manifest["documents_failed"],
         )
         return manifest
+    except Exception:
+        # Re-raise so the caller sees the failure; manifest already records
+        # per-document outcomes via the inner try/except in the for-loop.
+        manifest["status"] = "failed"
+        manifest["completed_at"] = _utc_now_iso()
+        raise
 
 
 if __name__ == "__main__":

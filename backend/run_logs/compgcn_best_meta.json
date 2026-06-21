@@ -1,1 +1,1 @@
-{"best_epoch": 158, "best_auc": 0.9800320863723755, "train_loss": 0.28121086955070496, "hidden_channels": 256, "loss_mode": "bpr", "adv_temp": 1.0, "num_relations": 8, "in_channels": 768, "saved_at": "2026-05-02T19:19:14.339394+00:00"}
+{"best_epoch": 228, "best_auc": 0.9781471490859985, "train_loss": 0.2659066915512085, "hidden_channels": 256, "loss_mode": "bpr", "adv_temp": 1.0, "decoder": "distmult", "num_relations": 8, "in_channels": 768, "saved_at": "2026-06-21T16:08:22.530081+00:00"}
