@@ -1,0 +1,544 @@
+{
+  "generated_at": "2026-06-24T12:28:36.517205+00:00",
+  "config": {
+    "seed_limit": 6000,
+    "expansion_limit": 10,
+    "tau": 0.95,
+    "checkpoint": "compgcn_best.pt (train13, epoch 228)",
+    "runs_planned": 5
+  },
+  "runs": [
+    {
+      "run": 1,
+      "grounding": 0.9973333333333334,
+      "faithfulness": 0.9866666666666667,
+      "answered": 15,
+      "per_query": [
+        {
+          "query": "How do the courts contrast the dominancy test with the holistic test?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What is copyright infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What does communication to the public mean in copyright law?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What rights does FILSCAP enforce regarding public performance of music?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What are literary and artistic works under copyright?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What are the requirements for registering a trademark?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What subject matter is patentable under the Intellectual Property Code?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What does Republic Act No. 8293 govern?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What is the role of the Intellectual Property Office of the Philippines?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What functions does the Bureau of Legal Affairs perform?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What powers does the Director General of the IPOPHL exercise?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How may decisions of the IPOPHL be appealed to the courts?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What remedies are available for intellectual property infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How do the courts assess likelihood of confusion between competing trademarks?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "Which decisions involve intellectual property disputes, and what were their core issues?",
+          "grounding_score": 0.96,
+          "faithfulness_score": 0.8
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "grounding": 1.0,
+      "faithfulness": 0.980392156862745,
+      "answered": 17,
+      "per_query": [
+        {
+          "query": "What is the dominancy test for determining trademark infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What is the holistic test in trademark law?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How do the courts contrast the dominancy test with the holistic test?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What constitutes unfair competition under Philippine intellectual property law?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What is copyright infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What does communication to the public mean in copyright law?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What rights does FILSCAP enforce regarding public performance of music?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What are literary and artistic works under copyright?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What are the requirements for registering a trademark?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 0.6666666666666666
+        },
+        {
+          "query": "What subject matter is patentable under the Intellectual Property Code?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What is the role of the Intellectual Property Office of the Philippines?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What functions does the Bureau of Legal Affairs perform?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What powers does the Director General of the IPOPHL exercise?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How may decisions of the IPOPHL be appealed to the courts?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What remedies are available for intellectual property infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How do the courts assess likelihood of confusion between competing trademarks?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "Which decisions involve intellectual property disputes, and what were their core issues?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "grounding": 0.9973333333333334,
+      "faithfulness": 0.9866666666666667,
+      "answered": 15,
+      "per_query": [
+        {
+          "query": "What is the dominancy test for determining trademark infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How do the courts contrast the dominancy test with the holistic test?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What constitutes unfair competition under Philippine intellectual property law?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What is copyright infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What does communication to the public mean in copyright law?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What rights does FILSCAP enforce regarding public performance of music?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What are literary and artistic works under copyright?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What does Republic Act No. 8293 govern?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What is the role of the Intellectual Property Office of the Philippines?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What functions does the Bureau of Legal Affairs perform?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What powers does the Director General of the IPOPHL exercise?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How may decisions of the IPOPHL be appealed to the courts?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What remedies are available for intellectual property infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How do the courts assess likelihood of confusion between competing trademarks?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "Which decisions involve intellectual property disputes, and what were their core issues?",
+          "grounding_score": 0.96,
+          "faithfulness_score": 0.8
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "grounding": 0.9714285714285714,
+      "faithfulness": 1.0,
+      "answered": 14,
+      "per_query": [
+        {
+          "query": "How do the courts contrast the dominancy test with the holistic test?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What constitutes unfair competition under Philippine intellectual property law?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What is copyright infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What rights does FILSCAP enforce regarding public performance of music?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What are literary and artistic works under copyright?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What are the requirements for registering a trademark?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What does Republic Act No. 8293 govern?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What is the role of the Intellectual Property Office of the Philippines?",
+          "grounding_score": 0.6,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What functions does the Bureau of Legal Affairs perform?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What powers does the Director General of the IPOPHL exercise?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How may decisions of the IPOPHL be appealed to the courts?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What remedies are available for intellectual property infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How do the courts assess likelihood of confusion between competing trademarks?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "Which decisions involve intellectual property disputes, and what were their core issues?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "grounding": 0.9975,
+      "faithfulness": 0.9875,
+      "answered": 16,
+      "per_query": [
+        {
+          "query": "What is the dominancy test for determining trademark infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How do the courts contrast the dominancy test with the holistic test?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What constitutes unfair competition under Philippine intellectual property law?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What is copyright infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What does communication to the public mean in copyright law?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What rights does FILSCAP enforce regarding public performance of music?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What are literary and artistic works under copyright?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What are the requirements for registering a trademark?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What does Republic Act No. 8293 govern?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What is the role of the Intellectual Property Office of the Philippines?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What functions does the Bureau of Legal Affairs perform?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What powers does the Director General of the IPOPHL exercise?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How may decisions of the IPOPHL be appealed to the courts?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "What remedies are available for intellectual property infringement?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "How do the courts assess likelihood of confusion between competing trademarks?",
+          "grounding_score": 1.0,
+          "faithfulness_score": 1.0
+        },
+        {
+          "query": "Which decisions involve intellectual property disputes, and what were their core issues?",
+          "grounding_score": 0.96,
+          "faithfulness_score": 0.8
+        }
+      ]
+    }
+  ],
+  "per_query_mean": {
+    "How do the courts contrast the dominancy test with the holistic test?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 5
+    },
+    "What is copyright infringement?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 5
+    },
+    "What does communication to the public mean in copyright law?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 4
+    },
+    "What rights does FILSCAP enforce regarding public performance of music?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 5
+    },
+    "What are literary and artistic works under copyright?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 5
+    },
+    "What are the requirements for registering a trademark?": {
+      "grounding": 1.0,
+      "faithfulness": 0.9167,
+      "n": 4
+    },
+    "What subject matter is patentable under the Intellectual Property Code?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 2
+    },
+    "What does Republic Act No. 8293 govern?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 4
+    },
+    "What is the role of the Intellectual Property Office of the Philippines?": {
+      "grounding": 0.92,
+      "faithfulness": 1.0,
+      "n": 5
+    },
+    "What functions does the Bureau of Legal Affairs perform?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 5
+    },
+    "What powers does the Director General of the IPOPHL exercise?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 5
+    },
+    "How may decisions of the IPOPHL be appealed to the courts?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 5
+    },
+    "What remedies are available for intellectual property infringement?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 5
+    },
+    "How do the courts assess likelihood of confusion between competing trademarks?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 5
+    },
+    "Which decisions involve intellectual property disputes, and what were their core issues?": {
+      "grounding": 0.976,
+      "faithfulness": 0.88,
+      "n": 5
+    },
+    "What is the dominancy test for determining trademark infringement?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 3
+    },
+    "What is the holistic test in trademark law?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 1
+    },
+    "What constitutes unfair competition under Philippine intellectual property law?": {
+      "grounding": 1.0,
+      "faithfulness": 1.0,
+      "n": 4
+    }
+  },
+  "aggregate": {
+    "grounding_mean": 0.9927,
+    "grounding_std": 0.0107,
+    "faithfulness_mean": 0.9882,
+    "faithfulness_std": 0.0064,
+    "answered_mean": 15.4,
+    "n_runs": 5,
+    "grounding_runs": [
+      0.9973,
+      1.0,
+      0.9973,
+      0.9714,
+      0.9975
+    ]
+  }
+}

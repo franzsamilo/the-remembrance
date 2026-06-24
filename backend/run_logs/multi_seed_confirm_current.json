@@ -1,0 +1,114 @@
+{
+  "description": "Multi-seed link-prediction eval of the train13 checkpoint (compgcn_best.pt, epoch 228) on the rebuilt live graph. Seed-reset before eval (Sun+2019, Vashishth+2020).",
+  "config": {
+    "decoder": "distmult",
+    "loss": "bpr",
+    "adv_temp": 1.0,
+    "checkpoint": "compgcn_best.pt (train13, epoch 228)",
+    "seeds": [
+      0,
+      1,
+      2,
+      5,
+      7,
+      11,
+      13,
+      23,
+      31,
+      42,
+      99,
+      100
+    ]
+  },
+  "auc_roc": {
+    "mean": 0.9857,
+    "std": 0.0007,
+    "min": 0.9844,
+    "max": 0.9867,
+    "pass_ge_0.95": 12,
+    "n": 12
+  },
+  "mrr_uniform": {
+    "mean": 0.959,
+    "std": 0.003,
+    "min": 0.9516,
+    "max": 0.9632,
+    "pass_ge_0.95": 12,
+    "n": 12
+  },
+  "per_seed": [
+    {
+      "seed": 0,
+      "auc": 0.985,
+      "mrr_uniform": 0.9593,
+      "mrr_type_aware": 0.9518
+    },
+    {
+      "seed": 1,
+      "auc": 0.9855,
+      "mrr_uniform": 0.9577,
+      "mrr_type_aware": 0.9477
+    },
+    {
+      "seed": 2,
+      "auc": 0.9861,
+      "mrr_uniform": 0.9562,
+      "mrr_type_aware": 0.9517
+    },
+    {
+      "seed": 5,
+      "auc": 0.9867,
+      "mrr_uniform": 0.9624,
+      "mrr_type_aware": 0.9534
+    },
+    {
+      "seed": 7,
+      "auc": 0.985,
+      "mrr_uniform": 0.9617,
+      "mrr_type_aware": 0.9536
+    },
+    {
+      "seed": 11,
+      "auc": 0.9861,
+      "mrr_uniform": 0.9516,
+      "mrr_type_aware": 0.9489
+    },
+    {
+      "seed": 13,
+      "auc": 0.9854,
+      "mrr_uniform": 0.96,
+      "mrr_type_aware": 0.953
+    },
+    {
+      "seed": 23,
+      "auc": 0.9844,
+      "mrr_uniform": 0.9569,
+      "mrr_type_aware": 0.9509
+    },
+    {
+      "seed": 31,
+      "auc": 0.9862,
+      "mrr_uniform": 0.9602,
+      "mrr_type_aware": 0.9524
+    },
+    {
+      "seed": 42,
+      "auc": 0.9866,
+      "mrr_uniform": 0.9592,
+      "mrr_type_aware": 0.9552
+    },
+    {
+      "seed": 99,
+      "auc": 0.9858,
+      "mrr_uniform": 0.9632,
+      "mrr_type_aware": 0.9561
+    },
+    {
+      "seed": 100,
+      "auc": 0.9857,
+      "mrr_uniform": 0.9602,
+      "mrr_type_aware": 0.9532
+    }
+  ],
+  "verdict": "AUC 12/12 PASS, MRR_uniform 12/12 PASS"
+}

@@ -95,8 +95,10 @@ class Config:
     INGESTION_RUN_LABEL = os.getenv("INGESTION_RUN_LABEL", "IngestionRun")
     AUDIT_RUN_LABEL = os.getenv("AUDIT_RUN_LABEL", "AuditRun")
     GRAPH_READY_MIN_PROVENANCE_LINKS = int(os.getenv("GRAPH_READY_MIN_PROVENANCE_LINKS", 1))
+    # Default to the legal query set — the corpus is Philippine jurisprudence,
+    # not research papers. Override with EVALUATION_QUERIES_FILE / EVALUATION_QUERIES.
     EVALUATION_QUERIES_FILE = os.getenv("EVALUATION_QUERIES_FILE") or os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "evaluation_queries.json"
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "evaluation_queries_legal.json"
     )
     EVALUATION_RESULTS_PATH = os.getenv("EVALUATION_RESULTS_PATH") or os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "evaluation_results.json"
@@ -126,7 +128,15 @@ class Config:
     TARGET_AUC_ROC = float(os.getenv("TARGET_AUC_ROC", 0.95))
     TARGET_MRR = float(os.getenv("TARGET_MRR", 0.95))
     TARGET_GROUNDING = float(os.getenv("TARGET_GROUNDING", 0.95))
-    RETRIEVAL_SEED_LIMIT = int(os.getenv("RETRIEVAL_SEED_LIMIT", 100))
+    # Seed pool for nearest-neighbour ranking. Aura-free has no vector index, so seeds
+    # are ranked in python over the fetched candidates — this MUST exceed the retrievable
+    # node count (~5,500) so ranking sees ALL candidates, not an arbitrary subset.
+    # A small limit (was 100) silently starved synthesis of the right triplets and
+    # capped grounding ~0.96; exhaustive ranking restores grounding >0.98 (validated
+    # via run_logs/reroll_retrieval_sweep.py + reroll_grounding_confirm.py).
+    RETRIEVAL_SEED_LIMIT = int(os.getenv("RETRIEVAL_SEED_LIMIT", 6000))
+    # Tight expansion: with good seeds, 10 triplets ground best; more breadth makes the
+    # synthesiser generalise beyond the triplets and DROPS grounding (exp=40 -> 0.87).
     RETRIEVAL_EXPANSION_LIMIT = int(os.getenv("RETRIEVAL_EXPANSION_LIMIT", 10))
     LEIDEN_RESOLUTION = float(os.getenv("LEIDEN_RESOLUTION", 1.0))
 

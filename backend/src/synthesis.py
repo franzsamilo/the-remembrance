@@ -182,6 +182,25 @@ async def generate_narrative_response(
     TONE: Investigative, expert, direct, unhedged, and exceptionally thorough. Use straight english and wide evidencing. Use **bolding** for key concepts.
     """
 
+    # When no community leads exist, constrain synthesis to a direct, triple-only
+    # answer. The 3-part structure otherwise mandates a Contextual Analysis section
+    # that, with no leads to discuss, becomes ungrounded "context" prose — which the
+    # grounding judge rightly penalises. A Validate-then-Generate system must not emit
+    # claims it cannot ground. (Leads are empty whenever Leiden/PageRank enrichment
+    # has not been run on the current graph.)
+    if not leads:
+        _no_leads_constraint = (
+            "\n\n    CONSTRAINT — NO DISCOVERY LEADS EXIST FOR THIS QUERY:\n"
+            "    - Omit the Contextual Analysis / Deeper Context & Leads section entirely.\n"
+            "    - Return ONLY the Direct Answer.\n"
+            "    - Include ONLY sentences each directly supported by a specific triple above —\n"
+            "      no background, no generalisation, no synthesis beyond what the triples\n"
+            "      explicitly state, and no fact-asserting transitions.\n"
+            "    - If only part of the question is answerable from the triples, answer that part and stop."
+        )
+        system_instruction = system_instruction + _no_leads_constraint
+        system_instruction_simple = system_instruction_simple + _no_leads_constraint
+
     prompt = f"""
     SYSTEM: {system_instruction}
     

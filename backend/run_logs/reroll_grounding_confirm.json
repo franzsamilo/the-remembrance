@@ -1,0 +1,63 @@
+{
+  "description": "5-run grounding/faithfulness on the 18-query corpus-aligned set, live system (train13 + seed=6000/exp=10 retriever), tau=0.95. Conservative headline run.",
+  "config": {
+    "seed_limit": 6000,
+    "expansion_limit": 10,
+    "tau": 0.95
+  },
+  "grounding": {
+    "mean": 0.9838,
+    "std": 0.0127,
+    "runs": [
+      0.9987,
+      0.9725,
+      0.975,
+      0.9728,
+      1.0
+    ],
+    "ge_0.98": 2
+  },
+  "faithfulness": {
+    "mean": 0.9825,
+    "std": 0.0107,
+    "runs": [
+      0.9804,
+      0.9875,
+      1.0,
+      0.9686,
+      0.9762
+    ]
+  },
+  "per_run": [
+    {
+      "run": 1,
+      "grounding": 0.9987,
+      "faithfulness": 0.9804,
+      "answered": 17
+    },
+    {
+      "run": 2,
+      "grounding": 0.9725,
+      "faithfulness": 0.9875,
+      "answered": 16
+    },
+    {
+      "run": 3,
+      "grounding": 0.975,
+      "faithfulness": 1.0,
+      "answered": 16
+    },
+    {
+      "run": 4,
+      "grounding": 0.9728,
+      "faithfulness": 0.9686,
+      "answered": 17
+    },
+    {
+      "run": 5,
+      "grounding": 1.0,
+      "faithfulness": 0.9762,
+      "answered": 14
+    }
+  ]
+}

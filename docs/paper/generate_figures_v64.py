@@ -157,8 +157,8 @@ fig, ax = plt.subplots(figsize=(13, 8))
 ax.set_xlim(0, 14)
 ax.set_ylim(0, 10)
 ax.axis("off")
-ax.set_title("Tuning Campaign Decision Tree: 9 Runs, 8 Months Compressed to 3 Weeks",
-             fontsize=14, weight="bold", pad=20)
+ax.set_title("Tuning Campaign Decision Tree: 9 Runs over Three Weeks (Apr 14 - May 3, 2026)",
+             fontsize=13, weight="bold", pad=20)
 
 def runbox(x, y, run_num, label, status, color, fontsize=9):
     """Draw a run box with PASS/FAIL color coding."""
