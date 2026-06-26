@@ -87,7 +87,7 @@ TRIPLETS:
 
 Return ONLY valid JSON: {{"scores": [5,4,3,...], "average": X}} where average is the mean of all scores (0-5 scale)."""
     try:
-        resp = await llm.ainvoke(prompt)
+        resp = await asyncio.to_thread(llm.invoke, prompt)
         data = _parse_json_from_response(resp.content)
         if data and "average" in data:
             avg = float(data["average"])
@@ -125,7 +125,7 @@ TRIPLETS:
 
 Return ONLY valid JSON: {{"claims": [{{"text": "...", "supported": true/false}}], "ratio": X}} where ratio = supported_count / total_count (0.0-1.0)."""
     try:
-        resp = await llm.ainvoke(prompt)
+        resp = await asyncio.to_thread(llm.invoke, prompt)
         data = _parse_json_from_response(resp.content)
         if data and "ratio" in data:
             return min(1.0, max(0.0, float(data["ratio"])))
@@ -168,6 +168,7 @@ async def run_grounding_evaluation(
         model=Config.GEMINI_MODEL,
         google_api_key=Config.GOOGLE_API_KEY,
         temperature=0,
+        transport=Config.GEMINI_TRANSPORT,
     )
     generator = DiscoveryGenerator()
 

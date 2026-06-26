@@ -68,6 +68,7 @@ class GeminiLLM(LLMInterface):
             model=model_name,
             google_api_key=api_key,
             temperature=0,
+            transport=Config.GEMINI_TRANSPORT,
         )
 
     def invoke(
@@ -105,7 +106,7 @@ class GeminiLLM(LLMInterface):
         base_delay = Config.INGESTION_LLM_BASE_DELAY
         for i in range(max_retries):
             try:
-                result = await self.internal_llm.ainvoke(input)
+                result = await asyncio.to_thread(self.internal_llm.invoke, input)
                 return LLMResponse(content=str(result.content))
             except Exception as exc:
                 if "429" in str(exc) and i < max_retries - 1:

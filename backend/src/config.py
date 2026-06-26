@@ -38,6 +38,12 @@ class Config:
     # AI/ML Settings
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    # Transport for the Gemini client. gRPC (the langchain-google-genai default)
+    # fails TLS verification on some Windows setups — a flood of
+    # "CERTIFICATE_VERIFY_FAILED: unable to get local issuer certificate" that
+    # hangs every LLM call. REST uses the standard-library TLS path (which
+    # verifies fine) and is the safe default; override to "grpc" where it works.
+    GEMINI_TRANSPORT = os.getenv("GEMINI_TRANSPORT", "rest")
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "models/gemini-embedding-001")
     DISTILBERT_MODEL = os.getenv("DISTILBERT_MODEL", "distilbert-base-nli-stsb-mean-tokens")
     EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", 768))

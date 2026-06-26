@@ -3,6 +3,7 @@ Synthesis layer: converts graph triplets and leads into analytical briefings
 using Gemini. Returns narrative text plus per-triplet and per-lead explanations.
 """
 from typing import List, Dict, Any, Optional
+import asyncio
 import json
 import re
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -34,6 +35,7 @@ async def generate_chunk_response(query: str, context_chunks: str) -> str:
         model=Config.GEMINI_MODEL,
         google_api_key=Config.GOOGLE_API_KEY,
         temperature=0,  # Deterministic: reproducible synthesis for evaluation
+        transport=Config.GEMINI_TRANSPORT,
     )
     prompt = f"""Answer the user's question using ONLY the following document excerpts. Do not use outside knowledge. If the excerpts do not contain enough information, say so clearly. Be direct and cite which document (the [filename] prefix) supports your answer when relevant.
 
@@ -44,7 +46,7 @@ USER QUESTION: {query}
 
 Answer:"""
     try:
-        response = await llm.ainvoke(prompt)
+        response = await asyncio.to_thread(llm.invoke, prompt)
         return response.content.strip() or "No response generated."
     except Exception as e:
         logger.error("Chunk synthesis failed: %s", e)
@@ -94,7 +96,8 @@ async def generate_narrative_response(
     llm = ChatGoogleGenerativeAI(
         model=Config.GEMINI_MODEL,
         google_api_key=Config.GOOGLE_API_KEY,
-        temperature=0  # Deterministic: reproducible synthesis for evaluation
+        temperature=0,  # Deterministic: reproducible synthesis for evaluation
+        transport=Config.GEMINI_TRANSPORT,
     )
 
     # Avoid double-titling if the persona env already starts with "Lead".
@@ -231,7 +234,7 @@ async def generate_narrative_response(
 
     try:
         logger.info("Synthesizing narrative for query: %s", query)
-        response = await llm.ainvoke(prompt if include_explanations else prompt_simple)
+        response = await asyncio.to_thread(llm.invoke, prompt if include_explanations else prompt_simple)
         content = response.content.strip()
         if not include_explanations:
             return {
